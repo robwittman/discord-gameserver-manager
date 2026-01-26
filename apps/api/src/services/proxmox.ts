@@ -1,5 +1,11 @@
 import { getProxmoxConfig, getTemplateForGame } from "../config/proxmox.js";
 
+// Allow self-signed certs for Proxmox (common in homelab setups)
+// Can be disabled by setting PROXMOX_VERIFY_SSL=true
+if (process.env.PROXMOX_VERIFY_SSL !== "true") {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+}
+
 export interface ProxmoxVmStatus {
   vmid: number;
   name: string;
@@ -209,6 +215,33 @@ export class ProxmoxClient {
   }
 
   /**
+   * Configure VM network interface
+   */
+  async configureNetwork(
+    node: string,
+    vmId: number,
+    options: {
+      bridge?: string;
+      vlanTag?: number;
+      netDevice?: string; // e.g., "net0"
+    }
+  ): Promise<void> {
+    const config = getProxmoxConfig();
+    const bridge = options.bridge ?? config.networkBridge;
+    const netDevice = options.netDevice ?? "net0";
+
+    // Build network config string: virtio,bridge=vmbr0,tag=100
+    let netConfig = `virtio,bridge=${bridge}`;
+    if (options.vlanTag) {
+      netConfig += `,tag=${options.vlanTag}`;
+    }
+
+    await this.request("PUT", `/nodes/${node}/qemu/${vmId}/config`, {
+      [netDevice]: netConfig,
+    });
+  }
+
+  /**
    * Configure cloud-init settings on a VM
    */
   async configureCloudInit(
@@ -220,6 +253,8 @@ export class ProxmoxClient {
       ipConfig?: string;
       nameserver?: string;
       searchDomain?: string;
+      /** Custom cloud-init snippet (e.g., "local:snippets/gameserver-init.yaml") */
+      customUserData?: string;
     }
   ): Promise<void> {
     const body: Record<string, unknown> = {};
@@ -246,6 +281,11 @@ export class ProxmoxClient {
 
     if (options.searchDomain) {
       body.searchdomain = options.searchDomain;
+    }
+
+    // Custom cloud-init user-data snippet
+    if (options.customUserData) {
+      body.cicustom = `user=${options.customUserData}`;
     }
 
     if (Object.keys(body).length > 0) {
@@ -446,8 +486,18 @@ export class VmProvisioner {
       sshKeys: config.cloudInit.sshPublicKey,
       nameserver: config.cloudInit.nameserver,
       searchDomain: config.cloudInit.searchDomain,
+      customUserData: config.cloudInit.customUserData,
     });
     console.log(`Cloud-init configured (user: ${config.cloudInit.user})`);
+
+    // Configure network (with VLAN tag if specified)
+    if (config.vlanTag) {
+      await this.client.configureNetwork(node, vmId, {
+        bridge: config.networkBridge,
+        vlanTag: config.vlanTag,
+      });
+      console.log(`Network configured (bridge: ${config.networkBridge}, VLAN: ${config.vlanTag})`);
+    }
 
     // Start the VM
     const startUpid = await this.client.startVm(node, vmId);

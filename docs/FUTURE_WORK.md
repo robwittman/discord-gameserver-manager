@@ -1,5 +1,45 @@
 # Future Work
 
+## In Progress: End-to-End Testing
+
+Ready to test but needs configuration:
+
+### API Server (`apps/api/.env`)
+```bash
+# Required
+HOST_EXTERNAL=<your-public-ip>
+HOST_INTERNAL=<internal-ip>
+PROXMOX_HOST=https://<proxmox-ip>:8006
+PROXMOX_TOKEN_ID=<user>@pam!<token-name>
+PROXMOX_TOKEN_SECRET=<token-secret>
+PROXMOX_BASE_IMAGE_VMID=<cloud-image-vm-id>
+PROXMOX_SSH_PUBLIC_KEY="ssh-ed25519 ..."
+PROXMOX_VLAN_TAG=<your-vlan>  # if needed
+```
+
+### Discord Bot (`apps/discord-bot/.env`)
+```bash
+DISCORD_TOKEN=<bot-token>  # Note: variable name is DISCORD_TOKEN, not DISCORD_BOT_TOKEN
+API_URL=http://localhost:3000
+DEPLOY_COMMANDS=true
+```
+
+### Proxmox Setup Required
+1. Create API token in Proxmox (Datacenter > Permissions > API Tokens)
+2. Import a cloud image as base VM (see `docs/PROXMOX_SETUP.md`)
+3. Ensure qemu-guest-agent is installed in the image (or via cloud-init snippet)
+
+### To Test
+```bash
+# Terminal 1
+cd apps/api && pnpm dev
+
+# Terminal 2
+cd apps/discord-bot && pnpm dev
+```
+
+---
+
 ## Nice-to-Have Features
 
 ### Discord Bot Enhancements

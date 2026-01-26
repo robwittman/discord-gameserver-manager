@@ -25,6 +25,8 @@ const CloudInitSchema = z.object({
   searchDomain: z.string().optional(),
   /** DNS nameserver */
   nameserver: z.string().optional(),
+  /** Custom user-data snippet path (e.g., "local:snippets/gameserver-init.yaml") */
+  customUserData: z.string().optional(),
 });
 
 const TimeoutsSchema = z.object({
@@ -44,6 +46,8 @@ const ProxmoxConfigSchema = z.object({
   }),
   storage: z.string().default("local-lvm"),
   networkBridge: z.string().default("vmbr0"),
+  /** VLAN tag for VM network interface (optional) */
+  vlanTag: z.number().int().min(1).max(4094).optional(),
   /** Base cloud image VM ID to clone from (e.g., Ubuntu Cloud image) */
   baseImageVmId: z.number().int().positive().optional(),
   /** Default VM resources */
@@ -78,6 +82,9 @@ function loadConfig(): ProxmoxConfig {
     },
     storage: process.env.PROXMOX_STORAGE ?? "local-lvm",
     networkBridge: process.env.PROXMOX_NETWORK_BRIDGE ?? "vmbr0",
+    vlanTag: process.env.PROXMOX_VLAN_TAG
+      ? parseInt(process.env.PROXMOX_VLAN_TAG, 10)
+      : undefined,
     // Base cloud image VM ID (e.g., Ubuntu Cloud image imported into Proxmox)
     baseImageVmId: process.env.PROXMOX_BASE_IMAGE_VMID
       ? parseInt(process.env.PROXMOX_BASE_IMAGE_VMID, 10)
@@ -92,6 +99,7 @@ function loadConfig(): ProxmoxConfig {
       user: process.env.PROXMOX_CI_USER ?? "gameserver",
       searchDomain: process.env.PROXMOX_CI_SEARCH_DOMAIN,
       nameserver: process.env.PROXMOX_CI_NAMESERVER,
+      customUserData: process.env.PROXMOX_CI_CUSTOM_USER_DATA,
     },
     templates: {},
     gameTemplates: {},
