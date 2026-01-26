@@ -1,0 +1,110 @@
+---
+# Valheim Server Provisioning Playbook
+# Variables passed from job executor:
+#   - server_id: Unique server identifier
+#   - server_name: Display name of the server
+#   - ports: { game: port, query: port }
+#   - config: { serverName, worldName, password, public }
+#   - owner_id: Discord user ID of owner
+#   - guild_id: Discord guild ID
+
+- name: Provision Valheim Server
+  hosts: all
+  become: yes
+  vars:
+    valheim_user: "valheim_{{ server_id | regex_replace('-', '_') | truncate(8, True, '') }}"
+    valheim_home: "/opt/gameservers/valheim/{{ server_id }}"
+    steamcmd_path: "/opt/steamcmd"
+    valheim_app_id: 896660
+
+  tasks:
+    - name: Ensure steamcmd is installed
+      block:
+        - name: Create steamcmd directory
+          file:
+            path: "{{ steamcmd_path }}"
+            state: directory
+            mode: '0755'
+
+        - name: Download steamcmd
+          unarchive:
+            src: https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz
+            dest: "{{ steamcmd_path }}"
+            remote_src: yes
+            creates: "{{ steamcmd_path }}/steamcmd.sh"
+
+    - name: Create valheim user
+      user:
+        name: "{{ valheim_user }}"
+        system: yes
+        home: "{{ valheim_home }}"
+        shell: /bin/bash
+        create_home: yes
+
+    - name: Create server directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ valheim_user }}"
+        group: "{{ valheim_user }}"
+        mode: '0755'
+      loop:
+        - "{{ valheim_home }}"
+        - "{{ valheim_home }}/server"
+        - "{{ valheim_home }}/data"
+        - "{{ valheim_home }}/backups"
+        - "{{ valheim_home }}/logs"
+
+    - name: Install Valheim dedicated server
+      become_user: "{{ valheim_user }}"
+      command: >
+        {{ steamcmd_path }}/steamcmd.sh
+        +force_install_dir {{ valheim_home }}/server
+        +login anonymous
+        +app_update {{ valheim_app_id }} validate
+        +quit
+      args:
+        creates: "{{ valheim_home }}/server/valheim_server.x86_64"
+      register: install_result
+      changed_when: "'Success' in install_result.stdout"
+
+    - name: Create server start script
+      template:
+        src: templates/valheim_start.sh.j2
+        dest: "{{ valheim_home }}/start.sh"
+        owner: "{{ valheim_user }}"
+        group: "{{ valheim_user }}"
+        mode: '0755'
+      vars:
+        game_port: "{{ ports.game }}"
+        server_name: "{{ config.serverName | default(server_name) }}"
+        world_name: "{{ config.worldName | default('Dedicated') }}"
+        password: "{{ config.password | default('') }}"
+        public: "{{ config.public | default(true) | ternary('1', '0') }}"
+
+    - name: Create systemd service
+      template:
+        src: templates/valheim.service.j2
+        dest: "/etc/systemd/system/valheim-{{ server_id }}.service"
+        mode: '0644'
+      notify: Reload systemd
+
+    - name: Store server metadata
+      copy:
+        content: |
+          server_id: {{ server_id }}
+          server_name: {{ server_name }}
+          owner_id: {{ owner_id }}
+          guild_id: {{ guild_id }}
+          game_port: {{ ports.game }}
+          query_port: {{ ports.query }}
+          created_at: {{ ansible_date_time.iso8601 }}
+        dest: "{{ valheim_home }}/metadata.yaml"
+        owner: "{{ valheim_user }}"
+        group: "{{ valheim_user }}"
+        mode: '0644'
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes

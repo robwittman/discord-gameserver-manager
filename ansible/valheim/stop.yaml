@@ -1,0 +1,38 @@
+---
+# Valheim Server Stop Playbook
+# Variables passed from job executor:
+#   - server_id: Unique server identifier
+
+- name: Stop Valheim Server
+  hosts: all
+  become: yes
+  vars:
+    service_name: "valheim-{{ server_id }}"
+    valheim_home: "/opt/gameservers/valheim/{{ server_id }}"
+
+  tasks:
+    - name: Stop Valheim service gracefully
+      systemd:
+        name: "{{ service_name }}"
+        state: stopped
+      register: stop_result
+      ignore_errors: yes
+
+    - name: Wait for server to stop
+      wait_for:
+        port: "{{ ports.game }}"
+        host: "0.0.0.0"
+        state: stopped
+        timeout: 60
+      ignore_errors: yes
+
+    - name: Force stop if still running
+      shell: |
+        pkill -f "valheim_server.*{{ server_id }}" || true
+      when: stop_result.failed | default(false)
+
+    - name: Verify server is stopped
+      systemd:
+        name: "{{ service_name }}"
+      register: service_status
+      failed_when: service_status.status.ActiveState == "active"

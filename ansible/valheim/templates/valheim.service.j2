@@ -1,0 +1,32 @@
+[Unit]
+Description=Valheim Dedicated Server - {{ server_id }}
+After=network.target
+
+[Service]
+Type=simple
+User={{ valheim_user }}
+Group={{ valheim_user }}
+WorkingDirectory={{ valheim_home }}
+ExecStart={{ valheim_home }}/start.sh
+ExecStop=/bin/kill -SIGINT $MAINPID
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+
+# Environment
+Environment="LD_LIBRARY_PATH={{ valheim_home }}/server/linux64"
+Environment="SteamAppId=892970"
+
+# Logging
+StandardOutput=append:{{ valheim_home }}/logs/service.log
+StandardError=append:{{ valheim_home }}/logs/service-error.log
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ valheim_home }}
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

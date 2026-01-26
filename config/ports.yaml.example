@@ -1,0 +1,13 @@
+pools:
+  game:
+    start: 27000
+    end: 27499
+    description: "Game server ports (UDP/TCP)"
+  sftp:
+    start: 2200
+    end: 2299
+    description: "SFTP access ports"
+
+host:
+  internal: "10.0.0.50"
+  external: "0.0.0.0"

@@ -1,0 +1,59 @@
+---
+# Valheim Server Backup Playbook
+# Variables passed from job executor:
+#   - server_id: Unique server identifier
+#   - backup_name: Name for this backup (timestamp-based)
+
+- name: Backup Valheim Server
+  hosts: all
+  become: yes
+  vars:
+    valheim_user: "valheim_{{ server_id | regex_replace('-', '_') | truncate(8, True, '') }}"
+    valheim_home: "/opt/gameservers/valheim/{{ server_id }}"
+    backup_dir: "{{ valheim_home }}/backups"
+    backup_file: "{{ backup_name | default('backup-' + ansible_date_time.epoch) }}.tar.gz"
+    max_backups: 10
+
+  tasks:
+    - name: Ensure backup directory exists
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+        owner: "{{ valheim_user }}"
+        group: "{{ valheim_user }}"
+        mode: '0755'
+
+    - name: Check if world data exists
+      stat:
+        path: "{{ valheim_home }}/data"
+      register: data_dir
+
+    - name: Create backup archive
+      archive:
+        path:
+          - "{{ valheim_home }}/data"
+          - "{{ valheim_home }}/metadata.yaml"
+        dest: "{{ backup_dir }}/{{ backup_file }}"
+        format: gz
+        owner: "{{ valheim_user }}"
+        group: "{{ valheim_user }}"
+        mode: '0644'
+      when: data_dir.stat.exists
+
+    - name: Get list of existing backups
+      find:
+        paths: "{{ backup_dir }}"
+        patterns: "*.tar.gz"
+        file_type: file
+      register: existing_backups
+
+    - name: Remove old backups (keep last {{ max_backups }})
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ (existing_backups.files | sort(attribute='mtime') | list)[:-max_backups] }}"
+      when: existing_backups.files | length > max_backups
+
+    - name: Report backup status
+      debug:
+        msg: "Backup created: {{ backup_dir }}/{{ backup_file }}"

@@ -1,0 +1,58 @@
+id: valheim
+name: Valheim Dedicated Server
+steamAppId: 896660
+
+ports:
+  game:
+    port: 2456
+    protocol: udp
+    description: "Game port"
+  query:
+    port: 2457
+    protocol: udp
+    description: "Query port"
+
+resources:
+  minMemoryMb: 4096
+  recommendedMemoryMb: 8192
+  minCpuCores: 2
+  diskSpaceGb: 10
+
+playbooks:
+  provision: valheim/provision.yaml
+  start: valheim/start.yaml
+  stop: valheim/stop.yaml
+  backup: valheim/backup.yaml
+  update: valheim/update.yaml
+  deprovision: valheim/deprovision.yaml
+
+configSchema:
+  serverName:
+    type: string
+    required: true
+    description: "Server name shown in browser"
+  worldName:
+    type: string
+    required: true
+    default: "Dedicated"
+    description: "World/save name"
+  password:
+    type: string
+    required: false
+    minLength: 5
+    description: "Server password (min 5 chars)"
+  public:
+    type: boolean
+    required: false
+    default: true
+    description: "Show in server browser"
+
+connectionTemplate:
+  title: "Valheim Server Connection"
+  lines:
+    - "**Server:** {config.serverName}"
+    - "**Address:** {host}:{ports.game}"
+    - "**World:** {config.worldName}"
+    - ""
+    - "To connect: Join via Steam server browser or add to favorites"
+    - "Server Name: {config.serverName}"

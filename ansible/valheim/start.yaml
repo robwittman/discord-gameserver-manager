@@ -1,0 +1,37 @@
+---
+# Valheim Server Start Playbook
+# Variables passed from job executor:
+#   - server_id: Unique server identifier
+
+- name: Start Valheim Server
+  hosts: all
+  become: yes
+  vars:
+    service_name: "valheim-{{ server_id }}"
+
+  tasks:
+    - name: Start Valheim service
+      systemd:
+        name: "{{ service_name }}"
+        state: started
+        enabled: yes
+
+    - name: Wait for server to be ready
+      wait_for:
+        port: "{{ ports.game }}"
+        host: "0.0.0.0"
+        delay: 5
+        timeout: 120
+      ignore_errors: yes
+
+    - name: Check service status
+      systemd:
+        name: "{{ service_name }}"
+      register: service_status
+
+    - name: Verify server is running
+      assert:
+        that:
+          - service_status.status.ActiveState == "active"
+        fail_msg: "Valheim server failed to start"
+        success_msg: "Valheim server is running"

@@ -1,0 +1,56 @@
+---
+# Valheim Server Update Playbook
+# Variables passed from job executor:
+#   - server_id: Unique server identifier
+
+- name: Update Valheim Server
+  hosts: all
+  become: yes
+  vars:
+    valheim_user: "valheim_{{ server_id | regex_replace('-', '_') | truncate(8, True, '') }}"
+    valheim_home: "/opt/gameservers/valheim/{{ server_id }}"
+    steamcmd_path: "/opt/steamcmd"
+    valheim_app_id: 896660
+    service_name: "valheim-{{ server_id }}"
+
+  tasks:
+    - name: Check if server is running
+      systemd:
+        name: "{{ service_name }}"
+      register: service_status
+
+    - name: Stop server before update
+      systemd:
+        name: "{{ service_name }}"
+        state: stopped
+      when: service_status.status.ActiveState == "active"
+
+    - name: Wait for server to stop
+      wait_for:
+        path: "/proc/{{ service_status.status.MainPID }}"
+        state: absent
+        timeout: 60
+      when:
+        - service_status.status.ActiveState == "active"
+        - service_status.status.MainPID is defined
+      ignore_errors: yes
+
+    - name: Update Valheim dedicated server
+      become_user: "{{ valheim_user }}"
+      command: >
+        {{ steamcmd_path }}/steamcmd.sh
+        +force_install_dir {{ valheim_home }}/server
+        +login anonymous
+        +app_update {{ valheim_app_id }} validate
+        +quit
+      register: update_result
+
+    - name: Report update status
+      debug:
+        msg: "{{ update_result.stdout_lines | last }}"
+
+    - name: Start server after update
+      systemd:
+        name: "{{ service_name }}"
+        state: started
+      when: service_status.status.ActiveState == "active"

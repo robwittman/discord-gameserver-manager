@@ -1,0 +1,51 @@
+---
+# Valheim Server Deprovision Playbook
+# Variables passed from job executor:
+#   - server_id: Unique server identifier
+
+- name: Deprovision Valheim Server
+  hosts: all
+  become: yes
+  vars:
+    valheim_user: "valheim_{{ server_id | regex_replace('-', '_') | truncate(8, True, '') }}"
+    valheim_home: "/opt/gameservers/valheim/{{ server_id }}"
+    service_name: "valheim-{{ server_id }}"
+
+  tasks:
+    - name: Stop Valheim service
+      systemd:
+        name: "{{ service_name }}"
+        state: stopped
+      ignore_errors: yes
+
+    - name: Disable Valheim service
+      systemd:
+        name: "{{ service_name }}"
+        enabled: no
+      ignore_errors: yes
+
+    - name: Remove systemd service file
+      file:
+        path: "/etc/systemd/system/{{ service_name }}.service"
+        state: absent
+      notify: Reload systemd
+
+    - name: Remove server directory
+      file:
+        path: "{{ valheim_home }}"
+        state: absent
+
+    - name: Remove valheim user
+      user:
+        name: "{{ valheim_user }}"
+        state: absent
+        remove: yes
+
+    - name: Report deprovision complete
+      debug:
+        msg: "Server {{ server_id }} has been fully deprovisioned"
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
