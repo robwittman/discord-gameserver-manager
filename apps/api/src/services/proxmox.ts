@@ -249,6 +249,7 @@ export class ProxmoxClient {
     vmId: number,
     options: {
       user?: string;
+      password?: string;
       sshKeys?: string;
       ipConfig?: string;
       nameserver?: string;
@@ -261,6 +262,10 @@ export class ProxmoxClient {
 
     if (options.user) {
       body.ciuser = options.user;
+    }
+
+    if (options.password) {
+      body.cipassword = options.password;
     }
 
     if (options.sshKeys) {
@@ -483,6 +488,7 @@ export class VmProvisioner {
     // Configure cloud-init
     await this.client.configureCloudInit(node, vmId, {
       user: config.cloudInit.user,
+      password: config.cloudInit.password,
       sshKeys: config.cloudInit.sshPublicKey,
       nameserver: config.cloudInit.nameserver,
       searchDomain: config.cloudInit.searchDomain,

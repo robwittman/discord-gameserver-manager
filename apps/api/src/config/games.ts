@@ -51,6 +51,8 @@ const GameDefinitionSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   name: z.string(),
   steamAppId: z.number().int().positive().optional(),
+  /** LGSM server name (e.g., "vhserver" for Valheim) - enables generic LGSM playbooks */
+  lgsmServerName: z.string().optional(),
   ports: z.record(z.string(), PortDefinitionSchema),
   resources: ResourceRequirementsSchema,
   playbooks: PlaybookPathsSchema,

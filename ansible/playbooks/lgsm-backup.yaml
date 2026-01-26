@@ -1,0 +1,26 @@
+---
+# Backup LGSM Game Server
+#
+# Variables:
+#   - server_id: Unique server identifier
+#   - game_id: Game identifier
+#   - lgsm_server_name: LGSM server name
+
+- name: Backup LGSM Game Server
+  hosts: all
+  become: yes
+  vars:
+    server_user: "gs_{{ server_id | regex_replace('-', '') | truncate(8, True, '') }}"
+    server_home: "/opt/gameservers/{{ game_id }}/{{ server_id }}"
+
+  tasks:
+    - name: Run LGSM backup
+      become_user: "{{ server_user }}"
+      command: ./{{ lgsm_server_name }} backup
+      args:
+        chdir: "{{ server_home }}"
+      register: backup_result
+
+    - name: Show backup result
+      debug:
+        var: backup_result.stdout_lines

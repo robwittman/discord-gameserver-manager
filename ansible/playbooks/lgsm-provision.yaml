@@ -1,0 +1,29 @@
+---
+# Generic LGSM Game Server Provisioning Playbook
+#
+# Variables passed from job executor:
+#   - server_id: Unique server identifier
+#   - server_name: Display name of the server
+#   - game_id: Game identifier (e.g., "valheim")
+#   - lgsm_server_name: LGSM server name (e.g., "vhserver")
+#   - ports: { game: port, query: port }
+#   - config: Game-specific configuration dict
+#   - owner_id: Discord user ID of owner
+#   - guild_id: Discord guild ID
+
+- name: Provision LGSM Game Server
+  hosts: all
+  become: yes
+  vars:
+    server_user: "gs_{{ server_id | regex_replace('-', '') | truncate(8, True, '') }}"
+    server_home: "/opt/gameservers/{{ game_id }}/{{ server_id }}"
+    lgsm_common_config:
+      max_backups: 5
+      max_backup_days: 30
+      update_on_start: "off"
+    game_config: "{{ config }}"
+
+  roles:
+    - role: lgsm
+      vars:
+        lgsm_server_name: "{{ lgsm_server_name }}"

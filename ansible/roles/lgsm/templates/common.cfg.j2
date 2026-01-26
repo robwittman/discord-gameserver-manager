@@ -1,0 +1,17 @@
+## LGSM Common Configuration
+## Managed by Discord Server Manager - Do not edit manually
+
+# Notification settings (disabled - managed externally)
+discordalert="off"
+emailalert="off"
+pushbulletalert="off"
+
+# Backup settings
+maxbackups="{{ lgsm_common_config.max_backups | default(5) }}"
+maxbackupdays="{{ lgsm_common_config.max_backup_days | default(30) }}"
+
+# Update settings
+updateonstart="{{ lgsm_common_config.update_on_start | default('off') }}"
+
+# Logging
+consolelogging="on"

@@ -1,0 +1,21 @@
+---
+# Start LGSM Game Server
+#
+# Variables:
+#   - server_id: Unique server identifier
+#   - game_id: Game identifier
+#   - lgsm_server_name: LGSM server name
+
+- name: Start LGSM Game Server
+  hosts: all
+  become: yes
+  vars:
+    server_user: "gs_{{ server_id | regex_replace('-', '') | truncate(8, True, '') }}"
+    server_home: "/opt/gameservers/{{ game_id }}/{{ server_id }}"
+
+  tasks:
+    - name: Start game server via systemd
+      systemd:
+        name: "{{ lgsm_server_name }}-{{ server_id }}"
+        state: started
+        enabled: yes

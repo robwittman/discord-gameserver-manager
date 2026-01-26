@@ -6,6 +6,7 @@ import { existsSync } from "node:fs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ANSIBLE_DIR = process.env.ANSIBLE_DIR ?? join(__dirname, "../../../../ansible");
 const ANSIBLE_INVENTORY = process.env.ANSIBLE_INVENTORY ?? join(ANSIBLE_DIR, "inventory.ini");
+const SSH_PRIVATE_KEY = process.env.SSH_PRIVATE_KEY_PATH ?? join(process.env.HOME ?? "", ".ssh/id_ed25519");
 
 export interface AnsibleVariables {
   server_id: string;
@@ -106,6 +107,11 @@ export async function runPlaybook(
 
   if (options.verbosity && options.verbosity > 0) {
     args.push(`-${"v".repeat(Math.min(options.verbosity, 4))}`);
+  }
+
+  // Add SSH private key if it exists
+  if (existsSync(SSH_PRIVATE_KEY)) {
+    args.push("--private-key", SSH_PRIVATE_KEY);
   }
 
   // Execute ansible-playbook

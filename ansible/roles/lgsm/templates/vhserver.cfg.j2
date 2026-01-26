@@ -1,0 +1,20 @@
+## Valheim Server Configuration
+## Managed by Discord Server Manager - Do not edit manually
+
+# Server identity
+servername="{{ game_config.serverName | default(server_name) }}"
+serverpassword="{{ game_config.password | default('') }}"
+worldname="{{ game_config.worldName | default('Dedicated') }}"
+
+# Network
+port="{{ ports.game }}"
+public="{{ game_config.public | default(true) | ternary('1', '0') }}"
+
+# Crossplay (enable for Xbox/PC crossplay)
+crossplay="{{ game_config.crossplay | default(false) | ternary('true', 'false') }}"
+
+# Save interval (seconds)
+saveinterval="{{ game_config.saveInterval | default(1800) }}"
+
+# Backup count
+backupcount="{{ game_config.backupCount | default(3) }}"

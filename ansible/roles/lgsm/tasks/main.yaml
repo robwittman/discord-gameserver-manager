@@ -1,0 +1,123 @@
+---
+# LGSM (Linux Game Server Manager) Role
+# Installs and configures game servers using LGSM
+#
+# Required variables:
+#   - lgsm_server_name: LGSM server name (e.g., vhserver, mcserver)
+#   - server_id: Unique server identifier
+#   - server_user: Linux username for the server
+#   - server_home: Home directory for the server
+#   - game_config: Game-specific configuration dict
+
+- name: Install LGSM dependencies (Debian/Ubuntu)
+  apt:
+    name:
+      - curl
+      - wget
+      - file
+      - tar
+      - bzip2
+      - gzip
+      - unzip
+      - bsdmainutils
+      - python3
+      - util-linux
+      - ca-certificates
+      - binutils
+      - bc
+      - jq
+      - tmux
+      - netcat-openbsd
+      - lib32gcc-s1
+      - lib32stdc++6
+      - libsdl2-2.0-0:i386
+      - steamcmd
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: Create server user
+  user:
+    name: "{{ server_user }}"
+    system: yes
+    home: "{{ server_home }}"
+    shell: /bin/bash
+    create_home: yes
+
+- name: Create server directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: '0755'
+  loop:
+    - "{{ server_home }}"
+    - "{{ server_home }}/lgsm"
+    - "{{ server_home }}/lgsm/config-lgsm"
+    - "{{ server_home }}/lgsm/config-lgsm/{{ lgsm_server_name }}"
+    - "{{ server_home }}/backups"
+    - "{{ server_home }}/logs"
+
+- name: Download LinuxGSM
+  become_user: "{{ server_user }}"
+  get_url:
+    url: https://linuxgsm.sh
+    dest: "{{ server_home }}/linuxgsm.sh"
+    mode: '0755'
+
+- name: Create LGSM server script
+  become_user: "{{ server_user }}"
+  command: ./linuxgsm.sh {{ lgsm_server_name }}
+  args:
+    chdir: "{{ server_home }}"
+    creates: "{{ server_home }}/{{ lgsm_server_name }}"
+
+- name: Install game server
+  become_user: "{{ server_user }}"
+  command: ./{{ lgsm_server_name }} auto-install
+  args:
+    chdir: "{{ server_home }}"
+    creates: "{{ server_home }}/serverfiles"
+  register: install_result
+  async: 1800  # 30 minute timeout for large games
+  poll: 30
+
+- name: Deploy LGSM common config
+  become_user: "{{ server_user }}"
+  template:
+    src: common.cfg.j2
+    dest: "{{ server_home }}/lgsm/config-lgsm/{{ lgsm_server_name }}/common.cfg"
+    mode: '0644'
+  when: lgsm_common_config is defined
+
+- name: Deploy game-specific config
+  become_user: "{{ server_user }}"
+  template:
+    src: "{{ lgsm_server_name }}.cfg.j2"
+    dest: "{{ server_home }}/lgsm/config-lgsm/{{ lgsm_server_name }}/{{ lgsm_server_name }}.cfg"
+    mode: '0644'
+  when: game_config is defined
+
+- name: Create systemd service for LGSM server
+  template:
+    src: lgsm.service.j2
+    dest: "/etc/systemd/system/{{ lgsm_server_name }}-{{ server_id }}.service"
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Store server metadata
+  copy:
+    content: |
+      server_id: {{ server_id }}
+      server_name: {{ server_name }}
+      lgsm_server: {{ lgsm_server_name }}
+      owner_id: {{ owner_id }}
+      guild_id: {{ guild_id }}
+      game_port: {{ ports.game }}
+      query_port: {{ ports.query | default('') }}
+      created_at: {{ ansible_date_time.iso8601 }}
+    dest: "{{ server_home }}/metadata.yaml"
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: '0644'

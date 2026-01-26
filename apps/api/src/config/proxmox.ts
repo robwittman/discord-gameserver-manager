@@ -21,6 +21,8 @@ const CloudInitSchema = z.object({
   sshPublicKey: z.string().optional(),
   /** Default user for cloud-init (default: gameserver) */
   user: z.string().default("gameserver"),
+  /** Password for the cloud-init user (for console access) */
+  password: z.string().optional(),
   /** DNS domain for VMs */
   searchDomain: z.string().optional(),
   /** DNS nameserver */
@@ -97,6 +99,7 @@ function loadConfig(): ProxmoxConfig {
     cloudInit: {
       sshPublicKey: process.env.PROXMOX_SSH_PUBLIC_KEY,
       user: process.env.PROXMOX_CI_USER ?? "gameserver",
+      password: process.env.PROXMOX_CI_PASSWORD,
       searchDomain: process.env.PROXMOX_CI_SEARCH_DOMAIN,
       nameserver: process.env.PROXMOX_CI_NAMESERVER,
       customUserData: process.env.PROXMOX_CI_CUSTOM_USER_DATA,

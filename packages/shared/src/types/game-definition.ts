@@ -78,6 +78,8 @@ export interface GameDefinition {
   id: string;
   name: string;
   steamAppId?: number;
+  /** LGSM server name (e.g., "vhserver" for Valheim) - enables generic LGSM playbooks */
+  lgsmServerName?: string;
   ports: GamePorts;
   resources: ResourceRequirements;
   playbooks: PlaybookPaths;

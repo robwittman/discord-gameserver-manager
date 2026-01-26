@@ -1,0 +1,16 @@
+[Unit]
+Description={{ server_name }} Game Server (LGSM)
+After=network.target
+
+[Service]
+Type=forking
+User={{ server_user }}
+Group={{ server_user }}
+WorkingDirectory={{ server_home }}
+ExecStart={{ server_home }}/{{ lgsm_server_name }} start
+ExecStop={{ server_home }}/{{ lgsm_server_name }} stop
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

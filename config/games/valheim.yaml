@@ -2,6 +2,9 @@ id: valheim
 name: Valheim Dedicated Server
 steamAppId: 896660
 
+# LGSM server name - enables use of generic LGSM playbooks
+lgsmServerName: vhserver
+
 ports:
   game:
     port: 2456
@@ -18,13 +21,12 @@ resources:
   minCpuCores: 2
   diskSpaceGb: 10
 
+# Use generic LGSM playbooks
 playbooks:
-  provision: valheim/provision.yaml
-  start: valheim/start.yaml
-  stop: valheim/stop.yaml
-  backup: valheim/backup.yaml
-  update: valheim/update.yaml
-  deprovision: valheim/deprovision.yaml
+  provision: playbooks/lgsm-provision.yaml
+  start: playbooks/lgsm-start.yaml
+  stop: playbooks/lgsm-stop.yaml
+  backup: playbooks/lgsm-backup.yaml
 
 configSchema:
   serverName:

@@ -135,6 +135,8 @@ function buildAnsibleVars(ctx: JobContext): AnsibleVariables {
     server_id: ctx.server.id,
     server_name: ctx.server.name,
     game_id: ctx.server.gameId,
+    // LGSM server name for generic LGSM playbooks (e.g., "vhserver" for Valheim)
+    lgsm_server_name: ctx.game.lgsmServerName,
     ports: ctx.server.allocatedPorts,
     config: ctx.server.config,
     internal_address: ctx.server.internalAddress,
@@ -161,6 +163,7 @@ async function runPlaybookWithLogging(
     extraVars,
     // Use server's internal address for dynamic targeting
     targetHost: server.internalAddress,
+    targetUser: "gameserver",
     onOutput: (line) => {
       // Only log non-empty, non-redundant lines
       if (line.trim() && !line.startsWith("PLAY RECAP")) {
