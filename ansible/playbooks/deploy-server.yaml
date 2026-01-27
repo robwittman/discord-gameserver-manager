@@ -37,6 +37,7 @@
           - python3-pip
           - ansible
           - acl
+          - vim
         state: present
 
     # Create application user
@@ -110,6 +111,14 @@
         mode: '0755'
 
     # SSH key generation for Ansible
+    - name: Create .ssh directory for app user
+      file:
+        path: "/home/{{ app_user }}/.ssh"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0700'
+
     - name: Generate SSH keypair for Ansible
       become_user: "{{ app_user }}"
       community.crypto.openssh_keypair:
@@ -141,14 +150,6 @@
         force: no
       register: git_clone
 
-    # Create symlink for data directory
-    - name: Create data symlink
-      file:
-        src: "{{ data_dir }}"
-        dest: "{{ app_dir }}/data"
-        state: link
-        owner: "{{ app_user }}"
-        group: "{{ app_group }}"
 
     # Install dependencies
     - name: Install Node.js dependencies

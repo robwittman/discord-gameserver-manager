@@ -117,15 +117,15 @@ export async function jobRoutes(fastify: FastifyInstance) {
   });
 }
 
-function validateJobAction(currentStatus: ServerStatus, action: string, hasVm: boolean = false): string | null {
+function validateJobAction(currentStatus: ServerStatus, action: string, _hasVm: boolean = false): string | null {
   switch (action) {
     case "provision":
-      // Allow re-provisioning stopped servers that have a VM (for updating config/port forwarding)
-      if (hasVm && currentStatus === "stopped") {
-        break; // Allow
+      // Allow re-provisioning stopped/error servers (for retrying or updating config/port forwarding)
+      if (currentStatus === "stopped" || currentStatus === "error") {
+        break; // Allow retry
       }
       if (currentStatus !== "pending") {
-        return `Cannot provision server in ${currentStatus} status. Must be pending (or stopped for re-provisioning).`;
+        return `Cannot provision server in ${currentStatus} status. Must be pending, stopped, or error.`;
       }
       break;
     case "start":
