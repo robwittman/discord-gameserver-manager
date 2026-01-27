@@ -25,16 +25,23 @@
     {
       "Code": "suvisitor",
       "Name": "Survival Visitor",
-      "Description": "Can visit but not build",
+      "Description": "Can only visit and chat",
       "DefaultSpawn": null,
-      "Privileges": ["chat", "build", "useblock", "pickup", "attackcreatures", "attackplayers"]
+      "Privileges": ["chat"]
     },
     {
       "Code": "suplayer",
       "Name": "Survival Player",
       "Description": "Default survival player",
       "DefaultSpawn": null,
-      "Privileges": ["chat", "build", "useblock", "pickup", "attackcreatures", "attackplayers"]
+      "Privileges": ["chat", "build", "useblock", "pickup", "attackcreatures", "attackplayers", "freemove", "gamemode", "pickingrange", "selfkill", "flymode"]
+    },
+    {
+      "Code": "sumod",
+      "Name": "Survival Moderator",
+      "Description": "Moderator with kick/ban abilities",
+      "DefaultSpawn": null,
+      "Privileges": ["chat", "build", "useblock", "pickup", "attackcreatures", "attackplayers", "freemove", "gamemode", "pickingrange", "selfkill", "flymode", "kick", "ban", "whitelist", "setwelcome", "announce", "readlists", "give", "setspawn", "controlserver", "tp", "time", "grantrevoke", "root", "commandplayer", "controlplayergroups"]
     },
     {
       "Code": "admin",

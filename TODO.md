@@ -28,6 +28,7 @@
 
 - [ ] Auto-start server after successful provisioning (queue a `start` job when provision completes)
 - [ ] Include server ID in provisioning completion notifications (Discord embeds)
+- [ ] Add `--watch` flag to CLI commands like `servers provision` to automatically stream job output (e.g., `gsm servers provision <id> --watch`)
 - [ ] Add health check endpoints for PM2 monitoring
 - [ ] Add log rotation configuration
 - [ ] Consider adding a web dashboard for server management
