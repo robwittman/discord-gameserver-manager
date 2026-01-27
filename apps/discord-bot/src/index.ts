@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits, Events } from "discord.js";
 import "dotenv/config";
 import { commands, deployCommands } from "./commands/index.js";
+import { startWebhookServer } from "./webhook-server.js";
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
@@ -20,6 +21,10 @@ client.once(Events.ClientReady, async (readyClient) => {
       console.error("Failed to deploy commands:", error);
     }
   }
+
+  // Start webhook server for receiving job notifications from the API
+  const webhookPort = parseInt(process.env.WEBHOOK_PORT ?? "3001", 10);
+  startWebhookServer(client, webhookPort);
 });
 
 // Handle slash command interactions

@@ -2,6 +2,7 @@ import { jobsRepo, serversRepo } from "../db/index.js";
 import { executeJob, updateServerStatusAfterJob } from "./job-executor.js";
 import { findAvailableGamePorts, createPortAllocations } from "./port-allocator.js";
 import { getGameDefinition } from "../config/games.js";
+import { notifyJobComplete } from "./notifications.js";
 import { ServerStatus, type Job } from "@discord-server-manager/shared";
 
 interface JobRunnerOptions {
@@ -143,7 +144,7 @@ export class JobRunner {
       const result = await executeJob(job);
 
       // Complete the job
-      jobsRepo.completeJob(job.id, result.success ? undefined : result.error);
+      const completedJob = jobsRepo.completeJob(job.id, result.success ? undefined : result.error);
 
       // Update server status
       updateServerStatusAfterJob(job.serverId, job.action, result.success);
@@ -153,6 +154,13 @@ export class JobRunner {
           result.error ? ` - ${result.error}` : ""
         }`
       );
+
+      // Send notification if configured
+      if (completedJob) {
+        notifyJobComplete(completedJob).catch((err) => {
+          console.error(`Failed to send job notification for ${job.id}:`, err);
+        });
+      }
     } finally {
       this.activeJobs.delete(job.id);
     }

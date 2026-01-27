@@ -59,6 +59,7 @@ connectionTemplate:
   lines:
     - "**Server:** {config.serverName}"
     - "**Address:** {host}:{ports.game}"
+    - "**Password:** ||{config.password}||"
     - "**World:** {config.worldName}"
     - ""
     - "To connect: Join via Steam server browser or add to favorites"

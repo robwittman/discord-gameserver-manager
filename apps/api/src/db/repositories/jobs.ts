@@ -11,6 +11,8 @@ interface JobRow {
   completed_at: string | null;
   error: string | null;
   logs: string | null;
+  notify_channel_id: string | null;
+  notify_user_id: string | null;
 }
 
 function rowToJob(row: JobRow): Job {
@@ -23,28 +25,32 @@ function rowToJob(row: JobRow): Job {
     completedAt: row.completed_at ?? undefined,
     error: row.error ?? undefined,
     logs: row.logs ? (JSON.parse(row.logs) as string[]) : undefined,
+    notifyChannelId: row.notify_channel_id ?? undefined,
+    notifyUserId: row.notify_user_id ?? undefined,
   };
 }
 
 /**
  * Create a new job
  */
-export function createJob(input: CreateJobInput): Job {
+export function createJob(input: CreateJobInput & { notifyChannelId?: string; notifyUserId?: string }): Job {
   const db = getDatabase();
   const id = randomUUID();
 
   const stmt = db.prepare(`
-    INSERT INTO jobs (id, server_id, action, status)
-    VALUES (?, ?, ?, 'queued')
+    INSERT INTO jobs (id, server_id, action, status, notify_channel_id, notify_user_id)
+    VALUES (?, ?, ?, 'queued', ?, ?)
   `);
 
-  stmt.run(id, input.serverId, input.action);
+  stmt.run(id, input.serverId, input.action, input.notifyChannelId ?? null, input.notifyUserId ?? null);
 
   return {
     id,
     serverId: input.serverId,
     action: input.action,
     status: "queued" as JobStatus,
+    notifyChannelId: input.notifyChannelId,
+    notifyUserId: input.notifyUserId,
   };
 }
 

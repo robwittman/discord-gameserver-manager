@@ -54,7 +54,9 @@ CREATE TABLE IF NOT EXISTS jobs (
   started_at TEXT,
   completed_at TEXT,
   error TEXT,
-  logs JSON
+  logs JSON,
+  notify_channel_id TEXT,
+  notify_user_id TEXT
 );
 
 -- Server managers (users who can manage a server besides the owner)
@@ -93,8 +95,30 @@ export function initializeDatabase(dbPath?: string): Database.Database {
 
   db.exec(SCHEMA);
 
+  // Run migrations for existing databases
+  runMigrations(db);
+
   console.log(`Database initialized at ${path}`);
   return db;
+}
+
+/**
+ * Run database migrations for schema changes
+ */
+function runMigrations(database: Database.Database): void {
+  // Migration: Add notification columns to jobs table
+  const jobsColumns = database.prepare("PRAGMA table_info(jobs)").all() as Array<{ name: string }>;
+  const columnNames = jobsColumns.map((c) => c.name);
+
+  if (!columnNames.includes("notify_channel_id")) {
+    database.exec("ALTER TABLE jobs ADD COLUMN notify_channel_id TEXT");
+    console.log("Migration: Added notify_channel_id column to jobs table");
+  }
+
+  if (!columnNames.includes("notify_user_id")) {
+    database.exec("ALTER TABLE jobs ADD COLUMN notify_user_id TEXT");
+    console.log("Migration: Added notify_user_id column to jobs table");
+  }
 }
 
 /**

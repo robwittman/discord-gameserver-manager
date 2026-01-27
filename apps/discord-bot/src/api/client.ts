@@ -103,7 +103,9 @@ export async function createServer(input: {
   config: Record<string, unknown>;
   ownerId: string;
   guildId: string;
-}): Promise<ApiResponse<{ server: ServerInfo; portAllocationFailed: boolean }>> {
+  notifyChannelId?: string;
+  notifyUserId?: string;
+}): Promise<ApiResponse<{ server: ServerInfo; job: JobInfo | null; portAllocationFailed: boolean }>> {
   return request("POST", "/servers", input);
 }
 

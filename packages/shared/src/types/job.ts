@@ -25,6 +25,10 @@ export interface Job {
   completedAt?: string;
   error?: string;
   logs?: string[];
+  /** Discord channel ID to send notification when job completes */
+  notifyChannelId?: string;
+  /** Discord user ID to mention in the notification */
+  notifyUserId?: string;
 }
 
 /**

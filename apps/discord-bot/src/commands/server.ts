@@ -130,13 +130,15 @@ async function handleCreate(interaction: ChatInputCommandInteraction) {
   }
 
   // Create the server with basic config
-  // In a real implementation, you might show a modal for additional config
+  // Include notification info so we get pinged when provisioning completes
   const result = await api.createServer({
     gameId,
     name,
     config: { serverName: name },
     ownerId: interaction.user.id,
     guildId: interaction.guildId!,
+    notifyChannelId: interaction.channelId,
+    notifyUserId: interaction.user.id,
   });
 
   if (result.error) {
@@ -145,29 +147,40 @@ async function handleCreate(interaction: ChatInputCommandInteraction) {
   }
 
   const server = result.data!.server;
-  const embed = new EmbedBuilder()
-    .setTitle("✅ Server Created")
-    .setColor(0x00ff00)
-    .addFields(
-      { name: "Name", value: server.name, inline: true },
-      { name: "Game", value: gameResult.data!.game.name, inline: true },
-      { name: "Status", value: server.status, inline: true },
-      { name: "Server ID", value: `\`${server.id}\``, inline: false }
-    );
+  const job = result.data!.job;
 
+  // Check if port allocation failed (server won't be provisioned yet)
   if (result.data!.portAllocationFailed) {
-    embed.addFields({
-      name: "⚠️ Warning",
-      value: "Port allocation is pending. An admin will assign ports shortly.",
-    });
-  } else {
-    const ports = Object.entries(server.allocatedPorts)
-      .map(([k, v]) => `${k}: ${v}`)
-      .join(", ");
-    embed.addFields({ name: "Ports", value: ports || "None", inline: false });
+    const embed = new EmbedBuilder()
+      .setTitle("⚠️ Server Created - Awaiting Ports")
+      .setColor(0xffa500)
+      .setDescription("Your server has been created but port allocation is pending. An admin will assign ports shortly, and provisioning will begin automatically.")
+      .addFields(
+        { name: "Name", value: server.name, inline: true },
+        { name: "Game", value: gameResult.data!.game.name, inline: true },
+        { name: "Server ID", value: `\`${server.id}\``, inline: false }
+      );
+
+    await interaction.editReply({ embeds: [embed] });
+    return;
   }
 
-  embed.setFooter({ text: "Use /server info to get connection details" });
+  // Server is being provisioned
+  const embed = new EmbedBuilder()
+    .setTitle("🚀 Server Provisioning Started")
+    .setColor(0x5865f2)
+    .setDescription(`Your **${gameResult.data!.game.name}** server is being set up. This may take a few minutes.\n\nI'll ping you in this channel when it's ready!`)
+    .addFields(
+      { name: "Server Name", value: server.name, inline: true },
+      { name: "Game", value: gameResult.data!.game.name, inline: true },
+      { name: "Status", value: "⏳ Provisioning", inline: true }
+    );
+
+  if (job) {
+    embed.addFields({ name: "Job ID", value: `\`${job.id}\``, inline: false });
+  }
+
+  embed.setFooter({ text: "You'll be notified when provisioning completes" });
 
   await interaction.editReply({ embeds: [embed] });
 }

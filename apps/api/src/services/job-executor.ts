@@ -4,6 +4,7 @@ import { getHostConfig } from "../config/ports.js";
 import { isProxmoxConfigured, getProxmoxConfig } from "../config/proxmox.js";
 import { runPlaybook, type AnsibleVariables } from "./ansible.js";
 import { getVmProvisioner } from "./proxmox.js";
+import { getUniFiClient, isUniFiConfigured } from "./unifi.js";
 import { ServerStatus, type Job, type ServerInstance, type GameDefinition } from "@discord-server-manager/shared";
 
 export interface ExecutionResult {
@@ -131,14 +132,24 @@ export function updateServerStatusAfterJob(
 function buildAnsibleVars(ctx: JobContext): AnsibleVariables {
   const hostConfig = getHostConfig();
 
+  // Use game's default ports for the server itself (not allocated external ports)
+  const gamePorts: Record<string, number> = {};
+  for (const [name, portDef] of Object.entries(ctx.game.ports)) {
+    gamePorts[name] = portDef.port;
+  }
+
   return {
     server_id: ctx.server.id,
     server_name: ctx.server.name,
     game_id: ctx.server.gameId,
     // LGSM server name for generic LGSM playbooks (e.g., "vhserver" for Valheim)
     lgsm_server_name: ctx.game.lgsmServerName,
-    ports: ctx.server.allocatedPorts,
+    // Use game's default ports for the server config
+    ports: gamePorts,
+    // Pass allocated ports separately (for reference/port forwarding)
+    external_ports: ctx.server.allocatedPorts,
     config: ctx.server.config,
+    game_config: ctx.server.config, // Alias for templates
     internal_address: ctx.server.internalAddress,
     external_address: hostConfig.external,
     owner_id: ctx.server.ownerId,
@@ -192,7 +203,14 @@ async function handleProvision(ctx: JobContext): Promise<ExecutionResult> {
   const { game, server, log } = ctx;
 
   log(`Game: ${game.name}`);
-  log(`Allocated ports: ${JSON.stringify(server.allocatedPorts)}`);
+  log(`Allocated external ports: ${JSON.stringify(server.allocatedPorts)}`);
+
+  // Log the internal ports that will be used
+  const internalPorts: Record<string, number> = {};
+  for (const [name, portDef] of Object.entries(game.ports)) {
+    internalPorts[name] = portDef.port;
+  }
+  log(`Internal game ports: ${JSON.stringify(internalPorts)}`);
 
   // Check if we need to provision a VM first
   if (!server.internalAddress && isProxmoxConfigured()) {
@@ -232,8 +250,80 @@ async function handleProvision(ctx: JobContext): Promise<ExecutionResult> {
     };
   }
 
+  // Create port forwarding rules on UniFi if configured
+  if (isUniFiConfigured()) {
+    log("Creating port forwarding rules on UniFi...");
+    try {
+      await createPortForwardingRules(ctx);
+      log("Port forwarding rules created");
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      log(`Warning: Failed to create port forwarding rules: ${error}`);
+      // Don't fail provisioning if port forwarding fails - it can be set up manually
+    }
+  }
+
   // Run the game-specific provisioning playbook
   return runPlaybookWithLogging(game.playbooks.provision, ctx);
+}
+
+/**
+ * Create port forwarding rules on UniFi for a server
+ */
+async function createPortForwardingRules(ctx: JobContext): Promise<void> {
+  const { server, game, log } = ctx;
+  const unifi = getUniFiClient();
+
+  if (!unifi || !server.internalAddress) {
+    return;
+  }
+
+  const portForwardRuleIds: string[] = [];
+
+  for (const [portName, externalPort] of Object.entries(server.allocatedPorts)) {
+    const portDef = game.ports[portName];
+    if (!portDef) {
+      log(`Warning: No port definition found for ${portName}`);
+      continue;
+    }
+
+    const ruleName = `gs-${server.id.slice(0, 8)}-${portName}`;
+
+    // Check if rule already exists
+    const existing = await unifi.findPortForwardByName(ruleName);
+    if (existing) {
+      log(`Port forward rule already exists: ${ruleName}`);
+      if (existing._id) {
+        portForwardRuleIds.push(existing._id);
+      }
+      continue;
+    }
+
+    log(`Creating port forward: ${externalPort} -> ${server.internalAddress}:${portDef.port} (${portDef.protocol})`);
+
+    const rule = await unifi.createPortForward({
+      name: ruleName,
+      externalPort,
+      internalIp: server.internalAddress,
+      internalPort: portDef.port,
+      protocol: portDef.protocol === "tcp+udp" ? "tcp_udp" : portDef.protocol,
+    });
+
+    if (rule._id) {
+      portForwardRuleIds.push(rule._id);
+    }
+  }
+
+  // Store the rule IDs in the server's config for cleanup later (as JSON string)
+  if (portForwardRuleIds.length > 0) {
+    const currentConfig = server.config as Record<string, string | number | boolean>;
+    serversRepo.updateServer(server.id, {
+      config: {
+        ...currentConfig,
+        _portForwardRuleIds: JSON.stringify(portForwardRuleIds),
+      },
+    });
+  }
 }
 
 async function handleStart(ctx: JobContext): Promise<ExecutionResult> {
@@ -282,6 +372,19 @@ async function handleDeprovision(ctx: JobContext): Promise<ExecutionResult> {
     }
   }
 
+  // Delete port forwarding rules if UniFi is configured
+  if (isUniFiConfigured()) {
+    log("Removing port forwarding rules...");
+    try {
+      await deletePortForwardingRules(ctx);
+      log("Port forwarding rules removed");
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      log(`Warning: Failed to remove port forwarding rules: ${error}`);
+      // Don't fail deprovisioning if port forwarding cleanup fails
+    }
+  }
+
   // Destroy the VM if it was provisioned via Proxmox
   if (server.vmId && isProxmoxConfigured()) {
     log(`Destroying VM ${server.vmId}...`);
@@ -305,4 +408,48 @@ async function handleDeprovision(ctx: JobContext): Promise<ExecutionResult> {
 
   log("Deprovision complete");
   return { success: true, logs: [] };
+}
+
+/**
+ * Delete port forwarding rules on UniFi for a server
+ */
+async function deletePortForwardingRules(ctx: JobContext): Promise<void> {
+  const { server, log } = ctx;
+  const unifi = getUniFiClient();
+
+  if (!unifi) {
+    return;
+  }
+
+  // Get rule IDs from server config (stored as JSON string)
+  const config = server.config as Record<string, unknown>;
+  const ruleIdsJson = config._portForwardRuleIds as string | undefined;
+  const ruleIds = ruleIdsJson ? JSON.parse(ruleIdsJson) as string[] : undefined;
+
+  if (ruleIds && ruleIds.length > 0) {
+    for (const ruleId of ruleIds) {
+      try {
+        await unifi.deletePortForward(ruleId);
+        log(`Deleted port forward rule: ${ruleId}`);
+      } catch (err) {
+        log(`Warning: Failed to delete rule ${ruleId}: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+  } else {
+    // Fallback: try to find rules by naming convention
+    log("No stored rule IDs, searching by name pattern...");
+    const rules = await unifi.listPortForwards();
+    const prefix = `gs-${server.id.slice(0, 8)}-`;
+
+    for (const rule of rules) {
+      if (rule.name.startsWith(prefix) && rule._id) {
+        try {
+          await unifi.deletePortForward(rule._id);
+          log(`Deleted port forward rule: ${rule.name}`);
+        } catch (err) {
+          log(`Warning: Failed to delete rule ${rule.name}: ${err instanceof Error ? err.message : err}`);
+        }
+      }
+    }
+  }
 }

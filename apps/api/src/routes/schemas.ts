@@ -7,6 +7,9 @@ export const CreateServerSchema = z.object({
   config: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
   ownerId: z.string().min(1),
   guildId: z.string().min(1),
+  // Optional notification info for the provision job
+  notifyChannelId: z.string().optional(),
+  notifyUserId: z.string().optional(),
 });
 
 export const UpdateServerSchema = z.object({

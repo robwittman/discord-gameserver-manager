@@ -1,0 +1,250 @@
+---
+# Playbook to provision the deployment server for Discord Server Manager
+#
+# Usage:
+#   ansible-playbook playbooks/deploy-server.yaml -i inventory/deploy.ini
+#
+# Prerequisites:
+#   - SSH access to the target server
+#   - sudo privileges on the target server
+
+- name: Provision Discord Server Manager deployment server
+  hosts: deploy
+  become: true
+  vars:
+    app_user: gamemanager
+    app_group: gamemanager
+    app_dir: /opt/discord-server-manager
+    data_dir: /var/lib/discord-server-manager
+    repo_url: "{{ lookup('env', 'REPO_URL') | default('https://github.com/robwittman/discord-server-manager.git', true) }}"
+    repo_branch: "{{ lookup('env', 'REPO_BRANCH') | default('main', true) }}"
+    nodejs_version: "20"
+
+  tasks:
+    # System setup
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install system dependencies
+      apt:
+        name:
+          - git
+          - curl
+          - build-essential
+          - python3
+          - python3-pip
+          - ansible
+          - acl
+        state: present
+
+    # Create application user
+    - name: Create application group
+      group:
+        name: "{{ app_group }}"
+        state: present
+
+    - name: Create application user
+      user:
+        name: "{{ app_user }}"
+        group: "{{ app_group }}"
+        shell: /bin/bash
+        home: "/home/{{ app_user }}"
+        create_home: yes
+        state: present
+
+    # Install Node.js via NodeSource
+    - name: Check if NodeSource repo exists
+      stat:
+        path: /etc/apt/sources.list.d/nodesource.list
+      register: nodesource_repo
+
+    - name: Download and run NodeSource setup script
+      shell: curl -fsSL https://deb.nodesource.com/setup_{{ nodejs_version }}.x | bash -
+      when: not nodesource_repo.stat.exists
+
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+        update_cache: yes
+
+    # Install pnpm
+    - name: Install pnpm globally
+      npm:
+        name: pnpm
+        global: yes
+        state: present
+
+    # Install PM2
+    - name: Install PM2 globally
+      npm:
+        name: pm2
+        global: yes
+        state: present
+
+    # Create directories
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0755'
+
+    - name: Create data directory
+      file:
+        path: "{{ data_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0755'
+
+    - name: Create log directory
+      file:
+        path: /var/log/discord-server-manager
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0755'
+
+    # SSH key generation for Ansible
+    - name: Generate SSH keypair for Ansible
+      become_user: "{{ app_user }}"
+      community.crypto.openssh_keypair:
+        path: "/home/{{ app_user }}/.ssh/id_ed25519"
+        type: ed25519
+        comment: "{{ app_user }}@discord-server-manager"
+      register: ssh_key
+
+    - name: Display public key for cloud-init
+      debug:
+        msg: |
+
+          ========================================
+          ADD THIS PUBLIC KEY TO YOUR CLOUD-INIT CONFIG
+          (ansible/roles/lgsm/files/gameserver-init.yaml or similar)
+          ========================================
+
+          {{ ssh_key.public_key }}
+
+          ========================================
+
+    # Clone repository
+    - name: Clone application repository
+      become_user: "{{ app_user }}"
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        version: "{{ repo_branch }}"
+        force: no
+      register: git_clone
+
+    # Create symlink for data directory
+    - name: Create data symlink
+      file:
+        src: "{{ data_dir }}"
+        dest: "{{ app_dir }}/data"
+        state: link
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+
+    # Install dependencies
+    - name: Install Node.js dependencies
+      become_user: "{{ app_user }}"
+      command: pnpm install --frozen-lockfile
+      args:
+        chdir: "{{ app_dir }}"
+      when: git_clone.changed or not ansible_check_mode
+
+    # Build application
+    - name: Build application
+      become_user: "{{ app_user }}"
+      command: pnpm build
+      args:
+        chdir: "{{ app_dir }}"
+      when: git_clone.changed or not ansible_check_mode
+
+    # Create .env files from examples if they don't exist
+    - name: Check if API .env exists
+      stat:
+        path: "{{ app_dir }}/apps/api/.env"
+      register: api_env
+
+    - name: Create API .env from example
+      copy:
+        src: "{{ app_dir }}/apps/api/.env.example"
+        dest: "{{ app_dir }}/apps/api/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0600'
+        remote_src: yes
+      when: not api_env.stat.exists
+      failed_when: false
+
+    - name: Check if Discord bot .env exists
+      stat:
+        path: "{{ app_dir }}/apps/discord-bot/.env"
+      register: bot_env
+
+    - name: Create Discord bot .env from example
+      copy:
+        src: "{{ app_dir }}/apps/discord-bot/.env.example"
+        dest: "{{ app_dir }}/apps/discord-bot/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: '0600'
+        remote_src: yes
+      when: not bot_env.stat.exists
+      failed_when: false
+
+    # Setup PM2
+    - name: Copy PM2 ecosystem config
+      become_user: "{{ app_user }}"
+      copy:
+        src: "{{ app_dir }}/ecosystem.config.cjs"
+        dest: "{{ app_dir }}/ecosystem.config.cjs"
+        remote_src: yes
+        mode: '0644'
+      failed_when: false
+
+    - name: Setup PM2 startup script
+      command: pm2 startup systemd -u {{ app_user }} --hp /home/{{ app_user }}
+      register: pm2_startup
+
+    - name: Run PM2 startup command
+      become_user: "{{ app_user }}"
+      shell: "{{ pm2_startup.stdout_lines | select('search', 'sudo') | first | regex_replace('^sudo ', '') }}"
+      when: pm2_startup.stdout_lines | select('search', 'sudo') | list | length > 0
+      failed_when: false
+
+    # Final instructions
+    - name: Display next steps
+      debug:
+        msg: |
+
+          ========================================
+          DEPLOYMENT COMPLETE - NEXT STEPS
+          ========================================
+
+          1. SSH into the server:
+             ssh {{ app_user }}@{{ inventory_hostname }}
+
+          2. Edit the .env files with your secrets:
+             nano {{ app_dir }}/apps/api/.env
+             nano {{ app_dir }}/apps/discord-bot/.env
+
+          3. Start the services:
+             cd {{ app_dir }}
+             pm2 start ecosystem.config.cjs
+             pm2 save
+
+          4. Add the SSH public key to your cloud-init config:
+             {{ ssh_key.public_key }}
+
+          5. Verify services are running:
+             pm2 status
+             pm2 logs
+
+          ========================================

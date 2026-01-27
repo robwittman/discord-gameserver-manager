@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { serversRepo } from "../db/index.js";
+import { serversRepo, jobsRepo } from "../db/index.js";
 import { getGameDefinition, validateServerConfig, applyConfigDefaults, renderConnectionInfo } from "../config/games.js";
 import { getHostConfig } from "../config/ports.js";
 import { findAvailableGamePorts, createPortAllocations, releasePorts } from "../services/port-allocator.js";
@@ -10,6 +10,7 @@ import {
   ManualPortsSchema,
 } from "./schemas.js";
 import { ServerStatus } from "@discord-server-manager/shared";
+import { generateServerPassword } from "../utils/password.js";
 
 export async function serverRoutes(fastify: FastifyInstance) {
   // Create a new server
@@ -29,8 +30,14 @@ export async function serverRoutes(fastify: FastifyInstance) {
       return { error: `Unknown game: ${input.gameId}` };
     }
 
+    // Generate a password if the game has a password field in its config schema
+    const configWithPassword = { ...input.config };
+    if (game.configSchema?.password && !configWithPassword.password) {
+      configWithPassword.password = generateServerPassword();
+    }
+
     // Apply defaults and validate config
-    const configWithDefaults = applyConfigDefaults(input.gameId, input.config);
+    const configWithDefaults = applyConfigDefaults(input.gameId, configWithPassword);
     const validation = validateServerConfig(input.gameId, configWithDefaults);
     if (!validation.valid) {
       reply.status(400);
@@ -66,8 +73,20 @@ export async function serverRoutes(fastify: FastifyInstance) {
       createPortAllocations(server.id, allocatedPorts);
     }
 
-    reply.status(201);
-    return { server, portAllocationFailed };
+    // Auto-queue a provision job if ports are allocated
+    let job = null;
+    if (!portAllocationFailed) {
+      job = jobsRepo.createJob({
+        serverId: server.id,
+        action: "provision",
+        notifyChannelId: input.notifyChannelId,
+        notifyUserId: input.notifyUserId,
+      });
+    }
+
+    // Return 202 Accepted to indicate async processing
+    reply.status(202);
+    return { server, job, portAllocationFailed };
   });
 
   // Admin endpoint: manually assign ports to a server
