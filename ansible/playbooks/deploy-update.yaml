@@ -1,0 +1,60 @@
+---
+# Playbook to deploy updates to the Discord Server Manager
+#
+# Usage:
+#   ansible-playbook playbooks/deploy-update.yaml -i inventory/deploy.ini
+#
+# This playbook:
+#   1. Pulls latest code from git
+#   2. Installs any new dependencies
+#   3. Rebuilds the application
+#   4. Restarts the services via PM2
+
+- name: Deploy Discord Server Manager updates
+  hosts: deploy
+  become: true
+  vars:
+    app_user: gamemanager
+    app_dir: /opt/discord-server-manager
+
+  tasks:
+    - name: Pull latest code
+      become_user: "{{ app_user }}"
+      git:
+        repo: "https://github.com/robwittman/discord-server-manager.git"
+        dest: "{{ app_dir }}"
+        version: "{{ branch | default('main') }}"
+        update: yes
+        force: "{{ force_pull | default(false) }}"
+      register: git_pull
+
+    - name: Install dependencies
+      become_user: "{{ app_user }}"
+      command: pnpm install --frozen-lockfile
+      args:
+        chdir: "{{ app_dir }}"
+      when: git_pull.changed
+
+    - name: Build application
+      become_user: "{{ app_user }}"
+      command: pnpm build
+      args:
+        chdir: "{{ app_dir }}"
+      when: git_pull.changed
+
+    - name: Restart services
+      become_user: "{{ app_user }}"
+      command: pm2 restart all
+      args:
+        chdir: "{{ app_dir }}"
+      when: git_pull.changed
+
+    - name: Show PM2 status
+      become_user: "{{ app_user }}"
+      command: pm2 list
+      register: pm2_status
+      changed_when: false
+
+    - name: Display status
+      debug:
+        msg: "{{ pm2_status.stdout_lines }}"

@@ -40,10 +40,17 @@ export interface CloneOptions {
   pool?: string;
 }
 
-export interface ProxmoxError {
+export class ProxmoxError extends Error {
   status: number;
-  message: string;
   errors?: Record<string, string>;
+
+  constructor(status: number, message: string, errors?: Record<string, string>) {
+    const errorDetails = errors ? ` - ${JSON.stringify(errors)}` : "";
+    super(`Proxmox API error ${status}: ${message}${errorDetails}`);
+    this.name = "ProxmoxError";
+    this.status = status;
+    this.errors = errors;
+  }
 }
 
 /**
@@ -95,12 +102,7 @@ export class ProxmoxClient {
     const json = await response.json() as { data?: T; errors?: Record<string, string> };
 
     if (!response.ok) {
-      const error: ProxmoxError = {
-        status: response.status,
-        message: response.statusText,
-        errors: json.errors,
-      };
-      throw error;
+      throw new ProxmoxError(response.status, response.statusText, json.errors);
     }
 
     return json.data as T;
