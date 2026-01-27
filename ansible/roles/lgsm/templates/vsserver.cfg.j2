@@ -1,0 +1,19 @@
+## Vintage Story Server Configuration
+## Managed by Discord Server Manager - Do not edit manually
+
+# Server identity
+servername="{{ game_config.serverName | default(server_name) }}"
+serverpassword="{{ game_config.password | default('') }}"
+
+# World settings
+worldname="{{ game_config.worldName | default('default') }}"
+{% if game_config.worldSeed is defined and game_config.worldSeed %}
+worldseed="{{ game_config.worldSeed }}"
+{% endif %}
+
+# Network
+port="{{ ports.game }}"
+maxplayers="{{ game_config.maxPlayers | default(16) }}"
+
+# Public server listing
+public="{{ game_config.public | default(true) | ternary('true', 'false') }}"

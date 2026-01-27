@@ -1,0 +1,17 @@
+## Satisfactory Server Configuration
+## Managed by Discord Server Manager - Do not edit manually
+
+# Server identity
+servername="{{ game_config.serverName | default(server_name) }}"
+
+# Network ports
+port="{{ ports.game }}"
+beaconport="{{ ports.beacon }}"
+queryport="{{ ports.query }}"
+
+# Player settings
+maxplayers="{{ game_config.maxPlayers | default(4) }}"
+
+# Server behavior
+autopause="{{ game_config.autoPause | default(true) | ternary('true', 'false') }}"
+autosaveondisconnect="{{ game_config.autoSaveOnDisconnect | default(true) | ternary('true', 'false') }}"
