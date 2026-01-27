@@ -22,38 +22,20 @@
   "MapSizeY": 256,
   "PassTimeWhenEmpty": false,
   "Roles": [
-    {
-      "Code": "suvisitor",
-      "Name": "Survival Visitor",
-      "Description": "Can only visit and chat",
-      "DefaultSpawn": null,
-      "Privileges": ["chat"]
-    },
-    {
-      "Code": "suplayer",
-      "Name": "Survival Player",
-      "Description": "Default survival player",
-      "DefaultSpawn": null,
-      "Privileges": ["chat", "build", "useblock", "pickup", "attackcreatures", "attackplayers", "freemove", "gamemode", "pickingrange", "selfkill", "flymode"]
-    },
-    {
-      "Code": "sumod",
-      "Name": "Survival Moderator",
-      "Description": "Moderator with kick/ban abilities",
-      "DefaultSpawn": null,
-      "Privileges": ["chat", "build", "useblock", "pickup", "attackcreatures", "attackplayers", "freemove", "gamemode", "pickingrange", "selfkill", "flymode", "kick", "ban", "whitelist", "setwelcome", "announce", "readlists", "give", "setspawn", "controlserver", "tp", "time", "grantrevoke", "root", "commandplayer", "controlplayergroups"]
-    },
-    {
-      "Code": "admin",
-      "Name": "Admin",
-      "Description": "Server administrator",
-      "DefaultSpawn": null,
-      "Privileges": ["*"]
-    }
+    {"Code": "suvisitor", "Name": "Survival Visitor", "PrivilegeLevel": -1, "Privileges": ["chat"], "DefaultGameMode": 1},
+    {"Code": "crvisitor", "Name": "Creative Visitor", "PrivilegeLevel": -1, "Privileges": ["chat"], "DefaultGameMode": 2},
+    {"Code": "limitedsuplayer", "Name": "Limited Survival Player", "PrivilegeLevel": 0, "Privileges": ["build", "useblock", "pickup", "chat", "attackcreatures", "attackplayers"], "DefaultGameMode": 1},
+    {"Code": "limitedcrplayer", "Name": "Limited Creative Player", "PrivilegeLevel": 0, "Privileges": ["build", "useblock", "pickup", "chat", "attackcreatures", "attackplayers", "flymode"], "DefaultGameMode": 2},
+    {"Code": "suplayer", "Name": "Survival Player", "PrivilegeLevel": 0, "Privileges": ["build", "useblock", "pickup", "chat", "attackcreatures", "attackplayers"], "LandClaimAllowance": 4, "LandClaimMaxAreas": 3, "DefaultGameMode": 1},
+    {"Code": "crplayer", "Name": "Creative Player", "PrivilegeLevel": 0, "Privileges": ["build", "useblock", "pickup", "chat", "attackcreatures", "attackplayers", "flymode"], "LandClaimAllowance": 40, "LandClaimMaxAreas": 60, "DefaultGameMode": 2},
+    {"Code": "sumod", "Name": "Survival Moderator", "PrivilegeLevel": 200, "Privileges": ["build", "useblock", "pickup", "chat", "kick", "ban", "whitelist", "attackcreatures", "attackplayers", "freemove", "gamemode", "flymode"], "DefaultGameMode": 1},
+    {"Code": "crmod", "Name": "Creative Moderator", "PrivilegeLevel": 200, "Privileges": ["build", "useblock", "pickup", "chat", "kick", "ban", "whitelist", "attackcreatures", "attackplayers", "freemove", "gamemode", "flymode"], "DefaultGameMode": 2},
+    {"Code": "admin", "Name": "Admin", "PrivilegeLevel": 99999, "AutoGrant": true, "Privileges": ["*"], "DefaultGameMode": 1}
   ],
   "DefaultRoleCode": "suplayer",
   "AntiAbuse": 0,
   "OnlyWhitelisted": false,
+  "WhitelistMode": 1,
   "DefaultGameMode": 1,
   "CorruptionProtection": true,
   "RepairMode": false,
