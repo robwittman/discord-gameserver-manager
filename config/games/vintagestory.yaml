@@ -1,0 +1,65 @@
+id: vintagestory
+name: Vintage Story Server
+# No Steam App ID - uses standalone installer
+
+# LGSM server name
+lgsmServerName: vsserver
+
+ports:
+  game:
+    port: 42420
+    protocol: tcp
+    description: "Game port"
+
+resources:
+  minMemoryMb: 2048
+  recommendedMemoryMb: 4096
+  minCpuCores: 2
+  diskSpaceGb: 5
+
+# Use generic LGSM playbooks
+playbooks:
+  provision: playbooks/lgsm-provision.yaml
+  start: playbooks/lgsm-start.yaml
+  stop: playbooks/lgsm-stop.yaml
+  backup: playbooks/lgsm-backup.yaml
+
+configSchema:
+  serverName:
+    type: string
+    required: true
+    description: "Server name shown in browser"
+  worldName:
+    type: string
+    required: true
+    default: "default"
+    description: "World/save name"
+  password:
+    type: string
+    required: false
+    description: "Server password (leave empty for no password)"
+  maxPlayers:
+    type: number
+    required: false
+    default: 16
+    description: "Maximum number of players"
+  worldSeed:
+    type: string
+    required: false
+    description: "World generation seed"
+  public:
+    type: boolean
+    required: false
+    default: true
+    description: "List server in public server browser"
+
+connectionTemplate:
+  title: "Vintage Story Server Connection"
+  lines:
+    - "**Server:** {config.serverName}"
+    - "**Address:** {host}:{ports.game}"
+    - "**Password:** ||{config.password}||"
+    - "**Max Players:** {config.maxPlayers}"
+    - ""
+    - "To connect: Multiplayer > Add Server"
+    - "Enter the address above"

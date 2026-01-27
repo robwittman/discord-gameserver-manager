@@ -1,0 +1,64 @@
+id: satisfactory
+name: Satisfactory Dedicated Server
+steamAppId: 1690800
+
+# LGSM server name
+lgsmServerName: sfserver
+
+ports:
+  game:
+    port: 7777
+    protocol: udp
+    description: "Game port"
+  beacon:
+    port: 15000
+    protocol: udp
+    description: "Beacon port"
+  query:
+    port: 15777
+    protocol: udp
+    description: "Query port"
+
+resources:
+  minMemoryMb: 8192
+  recommendedMemoryMb: 16384
+  minCpuCores: 4
+  diskSpaceGb: 25
+
+# Use generic LGSM playbooks
+playbooks:
+  provision: playbooks/lgsm-provision.yaml
+  start: playbooks/lgsm-start.yaml
+  stop: playbooks/lgsm-stop.yaml
+  backup: playbooks/lgsm-backup.yaml
+
+configSchema:
+  serverName:
+    type: string
+    required: true
+    description: "Server name"
+  maxPlayers:
+    type: number
+    required: false
+    default: 4
+    description: "Maximum number of players"
+  autoPause:
+    type: boolean
+    required: false
+    default: true
+    description: "Pause server when no players are online"
+  autoSaveOnDisconnect:
+    type: boolean
+    required: false
+    default: true
+    description: "Auto-save when players disconnect"
+
+connectionTemplate:
+  title: "Satisfactory Server Connection"
+  lines:
+    - "**Server:** {config.serverName}"
+    - "**Address:** {host}:{ports.game}"
+    - "**Max Players:** {config.maxPlayers}"
+    - ""
+    - "To connect: Open Satisfactory > Server Manager > Add Server"
+    - "Enter the address above and claim the server on first connection"

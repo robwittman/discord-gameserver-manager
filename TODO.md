@@ -9,6 +9,11 @@
 
 - [x] **Poor error serialization in job logs**: ~~Errors are logged as `[object Object]` instead of the actual error message.~~ Fixed: `ProxmoxError` now extends `Error` with proper message formatting.
 
+- [ ] **Server delete doesn't clean up infrastructure**: The DELETE `/servers/:id` endpoint only removes the database record without deprovisioning the VM or cleaning up port forwarding rules. Options:
+  - Mark server as `deleting` status, queue deprovision job, clean up resources, then remove record
+  - Soft delete: add `deletedAt` timestamp instead of removing records, clean up resources async
+  - Require explicit deprovision before allowing delete
+
 ## Configuration
 
 - [ ] Move `.env` files outside of the code directory (e.g., `/etc/discord-server-manager/`) to avoid conflicts during git pull deployments. Update the apps to load from an absolute path or `CONFIG_DIR` environment variable.
