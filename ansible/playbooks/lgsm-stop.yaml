@@ -14,7 +14,15 @@
     server_home: "/opt/gameservers/{{ game_id }}/{{ server_id }}"
 
   tasks:
-    - name: Stop game server via systemd
-      systemd:
-        name: "{{ lgsm_server_name }}-{{ server_id }}"
-        state: stopped
+    - name: Stop game server via LGSM
+      become_user: "{{ server_user }}"
+      command: "./{{ lgsm_server_name }} stop"
+      args:
+        chdir: "{{ server_home }}"
+      register: stop_result
+      failed_when: false  # LGSM returns non-zero if already stopped
+
+    - name: Display stop result
+      debug:
+        msg: "{{ stop_result.stdout_lines | default([]) }}"
+      when: stop_result.stdout_lines is defined

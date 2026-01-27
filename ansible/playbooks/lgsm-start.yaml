@@ -14,8 +14,14 @@
     server_home: "/opt/gameservers/{{ game_id }}/{{ server_id }}"
 
   tasks:
-    - name: Start game server via systemd
-      systemd:
-        name: "{{ lgsm_server_name }}-{{ server_id }}"
-        state: started
-        enabled: yes
+    - name: Start game server via LGSM
+      become_user: "{{ server_user }}"
+      command: "./{{ lgsm_server_name }} start"
+      args:
+        chdir: "{{ server_home }}"
+      register: start_result
+
+    - name: Display start result
+      debug:
+        msg: "{{ start_result.stdout_lines | default([]) }}"
+      when: start_result.stdout_lines is defined

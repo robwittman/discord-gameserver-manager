@@ -10,11 +10,15 @@ worldname="{{ game_config.worldName | default('Dedicated') }}"
 port="{{ ports.game }}"
 public="{{ game_config.public | default(true) | ternary('1', '0') }}"
 
-# Crossplay (enable for Xbox/PC crossplay)
-crossplay="{{ game_config.crossplay | default(false) | ternary('true', 'false') }}"
-
 # Save interval (seconds)
 saveinterval="{{ game_config.saveInterval | default(1800) }}"
 
 # Backup count
 backupcount="{{ game_config.backupCount | default(3) }}"
+
+# Override start parameters to control crossplay
+{% if game_config.crossplay | default(false) %}
+startparameters="-name '${servername}' -password ${serverpassword} -port ${port} -world ${worldname} -public ${public} -savedir '${savedir}' -saveinterval ${saveinterval} -backups ${backups} -backupshort ${backupshort} -backuplong ${backuplong} -crossplay -instanceid ${instanceid}"
+{% else %}
+startparameters="-name '${servername}' -password ${serverpassword} -port ${port} -world ${worldname} -public ${public} -savedir '${savedir}' -saveinterval ${saveinterval} -backups ${backups} -backupshort ${backupshort} -backuplong ${backuplong} -instanceid ${instanceid}"
+{% endif %}

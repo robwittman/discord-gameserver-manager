@@ -9,6 +9,38 @@
 #   - server_home: Home directory for the server
 #   - game_config: Game-specific configuration dict
 
+- name: Enable i386 architecture for 32-bit libraries
+  command: dpkg --add-architecture i386
+  changed_when: false
+  when: ansible_os_family == "Debian"
+
+- name: Add non-free repository for steamcmd
+  apt_repository:
+    repo: "deb http://deb.debian.org/debian {{ ansible_distribution_release }} main contrib non-free"
+    state: present
+  when: ansible_distribution == "Debian"
+
+- name: Update apt cache after architecture change
+  apt:
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: Accept Steam license agreement
+  debconf:
+    name: steam
+    question: steam/question
+    value: I AGREE
+    vtype: select
+  when: ansible_os_family == "Debian"
+
+- name: Accept Steam license agreement (purge question)
+  debconf:
+    name: steam
+    question: steam/purge
+    value: 'false'
+    vtype: boolean
+  when: ansible_os_family == "Debian"
+
 - name: Install LGSM dependencies (Debian/Ubuntu)
   apt:
     name:
@@ -30,10 +62,8 @@
       - netcat-openbsd
       - lib32gcc-s1
       - lib32stdc++6
-      - libsdl2-2.0-0:i386
       - steamcmd
     state: present
-    update_cache: yes
   when: ansible_os_family == "Debian"
 
 - name: Create server user
@@ -61,10 +91,17 @@
 
 - name: Download LinuxGSM
   become_user: "{{ server_user }}"
-  get_url:
-    url: https://linuxgsm.sh
-    dest: "{{ server_home }}/linuxgsm.sh"
+  command: curl -Lo linuxgsm.sh https://linuxgsm.sh
+  args:
+    chdir: "{{ server_home }}"
+    creates: "{{ server_home }}/linuxgsm.sh"
+
+- name: Make LinuxGSM executable
+  file:
+    path: "{{ server_home }}/linuxgsm.sh"
     mode: '0755'
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
 
 - name: Create LGSM server script
   become_user: "{{ server_user }}"

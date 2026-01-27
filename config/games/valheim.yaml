@@ -18,7 +18,7 @@ ports:
 resources:
   minMemoryMb: 4096
   recommendedMemoryMb: 8192
-  minCpuCores: 2
+  minCpuCores: 4
   diskSpaceGb: 10
 
 # Use generic LGSM playbooks
@@ -48,6 +48,11 @@ configSchema:
     required: false
     default: true
     description: "Show in server browser"
+  crossplay:
+    type: boolean
+    required: false
+    default: false
+    description: "Enable crossplay (Xbox/PC). When enabled, uses PlayFab relay instead of direct connections."
 
 connectionTemplate:
   title: "Valheim Server Connection"
