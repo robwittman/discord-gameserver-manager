@@ -9,6 +9,8 @@
 
 - [x] **Poor error serialization in job logs**: ~~Errors are logged as `[object Object]` instead of the actual error message.~~ Fixed: `ProxmoxError` now extends `Error` with proper message formatting.
 
+- [ ] **Server delete should require ownership**: The DELETE `/servers/:id` endpoint should verify the requester is the server owner before allowing deletion. Currently the API has no auth - need to pass userId and validate against server.ownerId.
+
 - [ ] **Server delete doesn't clean up infrastructure**: The DELETE `/servers/:id` endpoint only removes the database record without deprovisioning the VM or cleaning up port forwarding rules. Options:
   - Mark server as `deleting` status, queue deprovision job, clean up resources, then remove record
   - Soft delete: add `deletedAt` timestamp instead of removing records, clean up resources async
@@ -25,6 +27,7 @@
 ## Future Improvements
 
 - [ ] Auto-start server after successful provisioning (queue a `start` job when provision completes)
+- [ ] Include server ID in provisioning completion notifications (Discord embeds)
 - [ ] Add health check endpoints for PM2 monitoring
 - [ ] Add log rotation configuration
 - [ ] Consider adding a web dashboard for server management

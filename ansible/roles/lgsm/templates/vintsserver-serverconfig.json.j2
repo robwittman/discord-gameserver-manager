@@ -1,0 +1,64 @@
+{
+  "ServerName": "{{ game_config.serverName | default(server_name) }}",
+  "ServerDescription": "Managed by Discord Server Manager",
+  "WelcomeMessage": "Welcome to {{ game_config.serverName | default(server_name) }}!",
+  "Port": {{ ports.game }},
+  "MaxClients": {{ game_config.maxPlayers | default(16) }},
+  "Password": "{{ game_config.password | default('') }}",
+  "PublicVisible": {{ game_config.public | default(true) | ternary('true', 'false') }},
+  "WorldName": "{{ game_config.worldName | default('default') }}",
+{% if game_config.worldSeed is defined and game_config.worldSeed %}
+  "WorldSeed": "{{ game_config.worldSeed }}",
+{% endif %}
+  "WorldPlayStyle": "surviveandbuild",
+  "AllowPvP": false,
+  "AllowFireSpread": true,
+  "Language": "en",
+  "ServerLanguage": "en",
+  "MaxChunkRadius": 12,
+  "TickTime": 33.333,
+  "SpawnRadius": 5000,
+  "BlockTickInterval": 300,
+  "MapSizeY": 256,
+  "PassTimeWhenEmpty": false,
+  "Roles": [
+    {
+      "Code": "suvisitor",
+      "Name": "Survival Visitor",
+      "Description": "Can visit but not build",
+      "DefaultSpawn": null,
+      "Privileges": ["chat", "build", "useblock", "pickup", "attackcreatures", "attackplayers"]
+    },
+    {
+      "Code": "suplayer",
+      "Name": "Survival Player",
+      "Description": "Default survival player",
+      "DefaultSpawn": null,
+      "Privileges": ["chat", "build", "useblock", "pickup", "attackcreatures", "attackplayers"]
+    },
+    {
+      "Code": "admin",
+      "Name": "Admin",
+      "Description": "Server administrator",
+      "DefaultSpawn": null,
+      "Privileges": ["*"]
+    }
+  ],
+  "DefaultRoleCode": "suplayer",
+  "AntiAbuse": 0,
+  "OnlyWhitelisted": false,
+  "DefaultGameMode": 1,
+  "CorruptionProtection": true,
+  "RepairMode": false,
+  "SkipEveryChunkRow": 0,
+  "SkipEveryChunkRowWidth": 0,
+  "StartupCommands": "",
+  "ModPaths": ["Mods"],
+  "ModDbUrl": "",
+  "HostedMode": true,
+  "HostedModeAllowMods": true,
+  "NormalDamageToPlayers": true,
+  "ChatRateLimitMs": 1000,
+  "DieBelowDiskSpaceMb": 400,
+  "NextPlayerGroupUid": 10
+}

@@ -66,6 +66,35 @@
     state: present
   when: ansible_os_family == "Debian"
 
+# Install .NET 8 for Vintage Story (LGSM only installs .NET 7)
+- name: Install Microsoft package repository for .NET
+  when: lgsm_server_name == "vintsserver" and ansible_os_family == "Debian"
+  block:
+    - name: Download Microsoft package signing key
+      get_url:
+        url: https://packages.microsoft.com/config/ubuntu/{{ ansible_distribution_version }}/packages-microsoft-prod.deb
+        dest: /tmp/packages-microsoft-prod.deb
+      register: ms_pkg_download
+      failed_when: false
+
+    - name: Install Microsoft package repository
+      apt:
+        deb: /tmp/packages-microsoft-prod.deb
+      when: ms_pkg_download is succeeded
+
+    - name: Update apt cache after adding Microsoft repo
+      apt:
+        update_cache: yes
+      when: ms_pkg_download is succeeded
+
+    - name: Install .NET 8 runtime and pigz for Vintage Story
+      apt:
+        name:
+          - dotnet-runtime-8.0
+          - pigz
+        state: present
+      when: ms_pkg_download is succeeded
+
 - name: Create server user
   user:
     name: "{{ server_user }}"
@@ -135,6 +164,23 @@
     dest: "{{ server_home }}/lgsm/config-lgsm/{{ lgsm_server_name }}/{{ lgsm_server_name }}.cfg"
     mode: '0644'
   when: game_config is defined
+
+# Vintage Story requires a separate serverconfig.json file
+- name: Create Vintage Story data directory
+  become_user: "{{ server_user }}"
+  file:
+    path: "{{ server_home }}/serverfiles/data/vintsserver"
+    state: directory
+    mode: '0755'
+  when: lgsm_server_name == "vintsserver"
+
+- name: Deploy Vintage Story serverconfig.json
+  become_user: "{{ server_user }}"
+  template:
+    src: vintsserver-serverconfig.json.j2
+    dest: "{{ server_home }}/serverfiles/data/vintsserver/serverconfig.json"
+    mode: '0644'
+  when: lgsm_server_name == "vintsserver"
 
 - name: Create systemd service for LGSM server
   template:
