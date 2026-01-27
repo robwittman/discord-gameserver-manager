@@ -18,6 +18,10 @@
 
 - [ ] Move `.env` files outside of the code directory (e.g., `/etc/discord-server-manager/`) to avoid conflicts during git pull deployments. Update the apps to load from an absolute path or `CONFIG_DIR` environment variable.
 
+## Known Issues
+
+- [ ] **Vintage Story .NET 8 requirement**: LGSM installs .NET 7 but Vintage Story now requires .NET 8. May need manual intervention or a custom playbook task to install .NET 8. See: https://github.com/GameServerManagers/linuxgsm/issues/4818
+
 ## Future Improvements
 
 - [ ] Auto-start server after successful provisioning (queue a `start` job when provision completes)

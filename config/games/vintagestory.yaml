@@ -3,7 +3,7 @@ name: Vintage Story Server
 # No Steam App ID - uses standalone installer
 
 # LGSM server name
-lgsmServerName: vsserver
+lgsmServerName: vintsserver
 
 ports:
   game:
