@@ -15,6 +15,7 @@
 
 ## Future Improvements
 
+- [ ] Auto-start server after successful provisioning (queue a `start` job when provision completes)
 - [ ] Add health check endpoints for PM2 monitoring
 - [ ] Add log rotation configuration
 - [ ] Consider adding a web dashboard for server management

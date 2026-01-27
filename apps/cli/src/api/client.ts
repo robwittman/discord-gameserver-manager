@@ -48,6 +48,11 @@ export class ApiClient {
       throw new Error(errorBody.error || `API error: ${response.status}`);
     }
 
+    // Handle 204 No Content
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
     return response.json() as Promise<T>;
   }
 

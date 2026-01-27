@@ -26,6 +26,11 @@ async function request<T>(
       body: body ? JSON.stringify(body) : undefined,
     });
 
+    // Handle 204 No Content
+    if (response.status === 204) {
+      return { data: null as T };
+    }
+
     const data = await response.json() as T & { error?: string; details?: unknown };
 
     if (!response.ok) {
