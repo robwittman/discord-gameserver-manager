@@ -35,11 +35,14 @@ export class ApiClient {
     body?: unknown
   ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
+    const headers: Record<string, string> = {};
+    if (body) {
+      headers["Content-Type"] = "application/json";
+    }
+
     const response = await fetch(url, {
       method,
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     });
 
