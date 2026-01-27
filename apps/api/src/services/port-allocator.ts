@@ -36,6 +36,9 @@ function findConsecutiveBlock(
 /**
  * Find available ports for a game without creating allocations yet.
  * Returns the ports that would be allocated.
+ *
+ * Allocates N consecutive external ports where N is the number of ports the game needs.
+ * The internal game server uses its default ports - these are for external forwarding only.
  */
 export function findAvailableGamePorts(gamePorts: GamePorts): AllocatedPorts {
   const pool = getPortPool("game");
@@ -52,12 +55,8 @@ export function findAvailableGamePorts(gamePorts: GamePorts): AllocatedPorts {
   const allocatedList = portsRepo.getAllocatedPortsInPool("game");
   const allocatedSet = new Set(allocatedList);
 
-  // Calculate port offsets to maintain relative positions
-  const portDefs = Object.entries(gamePorts);
-  const basePorts = portDefs.map(([_, def]) => def.port);
-  const minBasePort = Math.min(...basePorts);
-  const offsets = basePorts.map((p) => p - minBasePort);
-  const blockSize = Math.max(...offsets) + 1;
+  // We just need N consecutive ports, where N = number of ports the game requires
+  const blockSize = portNames.length;
 
   // Find a consecutive block that can accommodate all ports
   const blockStart = findConsecutiveBlock(allocatedSet, pool.start, pool.end, blockSize);
@@ -68,14 +67,13 @@ export function findAvailableGamePorts(gamePorts: GamePorts): AllocatedPorts {
     );
   }
 
-  // Build the result without creating allocations
+  // Build the result - assign ports in order of the port definitions
   const result: AllocatedPorts = {};
+  const portDefs = Object.entries(gamePorts);
 
-  for (const [name, def] of portDefs) {
-    const offset = def.port - minBasePort;
-    const allocatedPort = blockStart + offset;
-    result[name] = allocatedPort;
-  }
+  portDefs.forEach(([name], i) => {
+    result[name] = blockStart + i;
+  });
 
   return result;
 }
