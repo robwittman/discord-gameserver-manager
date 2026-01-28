@@ -21,6 +21,7 @@ const PlaybookPathsSchema = z.object({
   backup: z.string(),
   update: z.string().optional(),
   deprovision: z.string().optional(),
+  installMods: z.string().optional(),
 });
 
 const ConfigSchemaFieldSchema = z.object({
@@ -47,6 +48,45 @@ const ConnectionTemplateSchema = z.object({
   lines: z.array(z.string()),
 });
 
+const ModSourceSchema = z.enum([
+  "thunderstore",
+  "vintagestory",
+  "curseforge",
+  "steam-workshop",
+  "nexusmods",
+  "github",
+  "url",
+  "manual",
+]);
+
+const ModFileFormatSchema = z.enum([
+  "zip-extract",
+  "zip-keep",
+  "jar",
+  "dll",
+  "folder",
+  "cs",
+  "lua",
+]);
+
+const ModFrameworkSchema = z.object({
+  name: z.string(),
+  source: ModSourceSchema,
+  packageId: z.string(),
+  required: z.boolean(),
+});
+
+const ModsConfigSchema = z.object({
+  enabled: z.boolean(),
+  source: ModSourceSchema,
+  additionalSources: z.array(ModSourceSchema).optional(),
+  fileFormat: ModFileFormatSchema,
+  installPath: z.string(),
+  framework: ModFrameworkSchema.optional(),
+  repositoryUrl: z.string().optional(),
+  notes: z.string().optional(),
+});
+
 const GameDefinitionSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   name: z.string(),
@@ -58,6 +98,7 @@ const GameDefinitionSchema = z.object({
   playbooks: PlaybookPathsSchema,
   configSchema: z.record(z.string(), ConfigSchemaFieldSchema),
   connectionTemplate: ConnectionTemplateSchema.optional(),
+  modsConfig: ModsConfigSchema.optional(),
 });
 
 let cachedDefinitions: Map<string, GameDefinition> | null = null;

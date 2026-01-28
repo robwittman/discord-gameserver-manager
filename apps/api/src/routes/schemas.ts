@@ -28,7 +28,7 @@ export const ListServersQuerySchema = z.object({
 
 // Job schemas
 export const CreateJobSchema = z.object({
-  action: z.enum(["provision", "start", "stop", "backup", "update", "deprovision", "delete"]),
+  action: z.enum(["provision", "start", "stop", "backup", "update", "deprovision", "delete", "install-mods"]),
 });
 
 // Admin schemas
@@ -41,9 +41,44 @@ export const DeleteServerSchema = z.object({
   userId: z.string().min(1),
 });
 
+// Mod schemas
+const ModSourceSchema = z.enum([
+  "thunderstore",
+  "vintagestory",
+  "curseforge",
+  "steam-workshop",
+  "nexusmods",
+  "github",
+  "url",
+  "manual",
+]);
+
+export const ModEntrySchema = z.object({
+  source: ModSourceSchema,
+  id: z.string().min(1),
+  version: z.string().optional(),
+  enabled: z.boolean().default(true),
+  name: z.string().optional(),
+});
+
+export const UpdateModsSchema = z.object({
+  mods: z.array(ModEntrySchema),
+});
+
+export const AddModSchema = z.object({
+  source: ModSourceSchema.optional(), // If not provided, uses game's default source
+  id: z.string().min(1),
+  version: z.string().optional(),
+  enabled: z.boolean().default(true),
+  name: z.string().optional(),
+});
+
 // Type exports
 export type CreateServerInput = z.infer<typeof CreateServerSchema>;
 export type UpdateServerInput = z.infer<typeof UpdateServerSchema>;
 export type ListServersQuery = z.infer<typeof ListServersQuerySchema>;
 export type CreateJobInput = z.infer<typeof CreateJobSchema>;
 export type DeleteServerInput = z.infer<typeof DeleteServerSchema>;
+export type ModEntryInput = z.infer<typeof ModEntrySchema>;
+export type UpdateModsInput = z.infer<typeof UpdateModsSchema>;
+export type AddModInput = z.infer<typeof AddModSchema>;

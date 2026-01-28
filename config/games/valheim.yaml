@@ -27,6 +27,7 @@ playbooks:
   start: playbooks/lgsm-start.yaml
   stop: playbooks/lgsm-stop.yaml
   backup: playbooks/lgsm-backup.yaml
+  installMods: playbooks/install-mods.yaml
 
 configSchema:
   serverName:
@@ -64,3 +65,20 @@ connectionTemplate:
     - ""
     - "To connect: Join via Steam server browser or add to favorites"
     - "Server Name: {config.serverName}"
+
+# Mod support configuration
+modsConfig:
+  enabled: true
+  source: thunderstore
+  fileFormat: dll
+  installPath: BepInEx/plugins
+  repositoryUrl: https://thunderstore.io/c/valheim/
+  framework:
+    name: BepInEx
+    source: thunderstore
+    packageId: denikson-BepInExPack_Valheim
+    required: true
+  notes: |
+    Valheim mods require BepInEx framework to be installed first.
+    Mods are .dll files placed in BepInEx/plugins directory.
+    Server and client must have matching mods installed.

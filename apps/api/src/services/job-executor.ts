@@ -31,6 +31,7 @@ const actionHandlers: Record<string, ActionHandler> = {
   update: handleUpdate,
   deprovision: handleDeprovision,
   delete: handleDelete,
+  "install-mods": handleInstallMods,
 };
 
 /**
@@ -160,6 +161,9 @@ function buildAnsibleVars(ctx: JobContext): AnsibleVariables {
     external_address: hostConfig.external,
     owner_id: ctx.server.ownerId,
     guild_id: ctx.server.guildId,
+    // Mod support
+    mods: ctx.server.mods ?? [],
+    mods_config: ctx.game.modsConfig ?? null,
   };
 }
 
@@ -482,6 +486,46 @@ async function handleDelete(ctx: JobContext): Promise<ExecutionResult> {
   log("Server deleted successfully");
 
   return { success: true, logs: [] };
+}
+
+async function handleInstallMods(ctx: JobContext): Promise<ExecutionResult> {
+  const { game, server, log } = ctx;
+
+  // Check if game supports mods
+  if (!game.modsConfig?.enabled) {
+    return {
+      success: false,
+      error: `Game ${game.name} does not support mods`,
+      logs: [],
+    };
+  }
+
+  // Check if install-mods playbook is configured
+  if (!game.playbooks.installMods) {
+    return {
+      success: false,
+      error: `No install-mods playbook configured for ${game.name}`,
+      logs: [],
+    };
+  }
+
+  // Check if server has any mods configured
+  const mods = server.mods ?? [];
+  if (mods.length === 0) {
+    log("No mods configured for this server");
+    return { success: true, logs: [] };
+  }
+
+  const enabledMods = mods.filter((m) => m.enabled);
+  log(`Installing ${enabledMods.length} enabled mods (${mods.length} total configured)`);
+
+  // Log mod details
+  for (const mod of enabledMods) {
+    log(`  - ${mod.name ?? mod.id} (source: ${mod.source}${mod.version ? `, version: ${mod.version}` : ""})`);
+  }
+
+  // Run the install-mods playbook
+  return runPlaybookWithLogging(game.playbooks.installMods, ctx);
 }
 
 /**

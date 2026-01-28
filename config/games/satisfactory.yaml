@@ -31,6 +31,7 @@ playbooks:
   start: playbooks/lgsm-start.yaml
   stop: playbooks/lgsm-stop.yaml
   backup: playbooks/lgsm-backup.yaml
+  installMods: playbooks/install-mods.yaml
 
 configSchema:
   serverName:
@@ -62,3 +63,17 @@ connectionTemplate:
     - ""
     - "To connect: Open Satisfactory > Server Manager > Add Server"
     - "Enter the address above and claim the server on first connection"
+
+# Mod support configuration
+modsConfig:
+  enabled: true
+  source: url
+  additionalSources:
+    - github
+  fileFormat: zip-extract
+  installPath: FactoryGame/Mods
+  repositoryUrl: https://ficsit.app/
+  notes: |
+    Satisfactory mods are typically managed via Satisfactory Mod Manager (SMM).
+    Not all mods support dedicated servers - check for "Server" compatibility tag.
+    Server and client must have matching mods installed.

@@ -161,6 +161,11 @@ function validateJobAction(currentStatus: ServerStatus, action: string, _hasVm: 
         return "Wait for provisioning to complete before deleting.";
       }
       break;
+    case "install-mods":
+      if (currentStatus !== "stopped") {
+        return `Cannot install mods on server in ${currentStatus} status. Must be stopped.`;
+      }
+      break;
   }
   return null;
 }

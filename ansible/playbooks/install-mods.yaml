@@ -1,0 +1,109 @@
+---
+# Generic Mod Installation Playbook
+#
+# Variables passed from job executor:
+#   - server_id: Unique server identifier
+#   - server_name: Display name of the server
+#   - game_id: Game identifier (e.g., "valheim", "vintagestory")
+#   - lgsm_server_name: LGSM server name (e.g., "vhserver")
+#   - config: Game-specific configuration dict
+#   - mods: List of mod entries to install
+#   - mods_config: Game mod configuration (source, installPath, fileFormat, etc.)
+
+- name: Install Mods
+  hosts: all
+  become: yes
+  vars:
+    server_user: "gs_{{ server_id | regex_replace('-', '') | truncate(8, True, '') }}"
+    server_home: "/opt/gameservers/{{ game_id }}/{{ server_id }}"
+    mods_dir: "{{ server_home }}/serverfiles/{{ mods_config.installPath }}"
+    enabled_mods: "{{ mods | selectattr('enabled', 'equalto', true) | list }}"
+
+  tasks:
+    - name: Display mod installation info
+      debug:
+        msg: |
+          Installing mods for {{ server_name }}
+          Game: {{ game_id }}
+          Mods directory: {{ mods_dir }}
+          Total mods: {{ mods | length }}
+          Enabled mods: {{ enabled_mods | length }}
+
+    - name: Ensure mods directory exists
+      file:
+        path: "{{ mods_dir }}"
+        state: directory
+        owner: "{{ server_user }}"
+        group: "{{ server_user }}"
+        mode: "0755"
+
+    # Install BepInEx framework if required (for Valheim, etc.)
+    - name: Install mod framework (if required)
+      when: mods_config.framework is defined and mods_config.framework.required
+      block:
+        - name: Check if framework is already installed
+          stat:
+            path: "{{ server_home }}/serverfiles/BepInEx"
+          register: framework_check
+
+        - name: Download and install BepInEx framework
+          when: not framework_check.stat.exists and mods_config.framework.name == 'BepInEx'
+          block:
+            - name: Create temp directory for framework
+              tempfile:
+                state: directory
+                suffix: _bepinex
+              register: framework_temp
+
+            - name: Download BepInEx from Thunderstore
+              get_url:
+                url: "https://thunderstore.io/package/download/{{ mods_config.framework.packageId | replace('-', '/') }}"
+                dest: "{{ framework_temp.path }}/bepinex.zip"
+              when: mods_config.framework.source == 'thunderstore'
+
+            - name: Extract BepInEx to server
+              unarchive:
+                src: "{{ framework_temp.path }}/bepinex.zip"
+                dest: "{{ server_home }}/serverfiles"
+                remote_src: yes
+                owner: "{{ server_user }}"
+                group: "{{ server_user }}"
+
+            - name: Clean up framework temp
+              file:
+                path: "{{ framework_temp.path }}"
+                state: absent
+
+    # Create manifest file to track installed mods
+    - name: Create mods manifest
+      copy:
+        content: "{{ enabled_mods | to_nice_json }}"
+        dest: "{{ server_home }}/.installed-mods.json"
+        owner: "{{ server_user }}"
+        group: "{{ server_user }}"
+        mode: "0644"
+
+    # Install mods based on source type
+    - name: Install mods from Vintage Story Mod DB
+      when: mods_config.source == 'vintagestory'
+      include_tasks: tasks/install-vintagestory-mods.yaml
+
+    - name: Install mods from Thunderstore
+      when: mods_config.source == 'thunderstore'
+      include_tasks: tasks/install-thunderstore-mods.yaml
+
+    - name: Install mods from direct URLs
+      when: mods_config.source == 'url' or mods_config.source == 'manual'
+      include_tasks: tasks/install-url-mods.yaml
+
+    - name: Set permissions on mods directory
+      file:
+        path: "{{ mods_dir }}"
+        state: directory
+        owner: "{{ server_user }}"
+        group: "{{ server_user }}"
+        recurse: yes
+
+    - name: Installation complete
+      debug:
+        msg: "Successfully processed {{ enabled_mods | length }} mod(s) for {{ server_name }}"

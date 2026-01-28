@@ -129,6 +129,12 @@ function runMigrations(database: Database.Database): void {
     database.exec("CREATE INDEX IF NOT EXISTS idx_servers_deleted ON servers(deleted_at)");
     console.log("Migration: Added deleted_at column to servers table");
   }
+
+  // Migration: Add mods column for server mod lists
+  if (!serverColumnNames.includes("mods")) {
+    database.exec("ALTER TABLE servers ADD COLUMN mods JSON DEFAULT '[]'");
+    console.log("Migration: Added mods column to servers table");
+  }
 }
 
 /**

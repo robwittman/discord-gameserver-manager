@@ -2,6 +2,8 @@ import type {
   ServerInstance,
   Job,
   GameDefinition,
+  ModEntry,
+  ModsConfig,
 } from "@discord-server-manager/shared";
 
 export interface ApiClientConfig {
@@ -116,6 +118,40 @@ export class ApiClient {
   async createJob(serverId: string, action: string): Promise<Job> {
     const result = await this.request<{ job: Job }>("POST", `/servers/${serverId}/jobs`, { action });
     return result.job;
+  }
+
+  // Mods
+  async getServerMods(serverId: string): Promise<{ mods: ModEntry[]; modsConfig: ModsConfig | null }> {
+    return this.request<{ mods: ModEntry[]; modsConfig: ModsConfig | null }>("GET", `/servers/${serverId}/mods`);
+  }
+
+  async setServerMods(serverId: string, mods: ModEntry[]): Promise<{ mods: ModEntry[] }> {
+    return this.request<{ mods: ModEntry[] }>("PUT", `/servers/${serverId}/mods`, { mods });
+  }
+
+  async addServerMod(
+    serverId: string,
+    mod: { source?: string; id: string; version?: string; enabled?: boolean; name?: string }
+  ): Promise<{ mod: ModEntry; mods: ModEntry[] }> {
+    return this.request<{ mod: ModEntry; mods: ModEntry[] }>("POST", `/servers/${serverId}/mods`, mod);
+  }
+
+  async removeServerMod(serverId: string, modId: string, source?: string): Promise<{ removed: ModEntry; mods: ModEntry[] }> {
+    const query = source ? `?source=${encodeURIComponent(source)}` : "";
+    return this.request<{ removed: ModEntry; mods: ModEntry[] }>("DELETE", `/servers/${serverId}/mods/${encodeURIComponent(modId)}${query}`);
+  }
+
+  async toggleServerMod(
+    serverId: string,
+    modId: string,
+    options?: { source?: string; enabled?: boolean; version?: string }
+  ): Promise<{ mod: ModEntry; mods: ModEntry[] }> {
+    const query = options?.source ? `?source=${encodeURIComponent(options.source)}` : "";
+    return this.request<{ mod: ModEntry; mods: ModEntry[] }>(
+      "PATCH",
+      `/servers/${serverId}/mods/${encodeURIComponent(modId)}${query}`,
+      { enabled: options?.enabled, version: options?.version }
+    );
   }
 
   // Health

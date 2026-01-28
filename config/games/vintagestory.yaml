@@ -23,6 +23,7 @@ playbooks:
   start: playbooks/lgsm-start.yaml
   stop: playbooks/lgsm-stop.yaml
   backup: playbooks/lgsm-backup.yaml
+  installMods: playbooks/install-mods.yaml
 
 configSchema:
   serverName:
@@ -63,3 +64,15 @@ connectionTemplate:
     - ""
     - "To connect: Multiplayer > Add Server"
     - "Enter the address above"
+
+# Mod support configuration
+modsConfig:
+  enabled: true
+  source: vintagestory
+  fileFormat: zip-keep
+  installPath: Mods
+  repositoryUrl: https://mods.vintagestory.at/
+  notes: |
+    Vintage Story mods are .zip files that should NOT be extracted.
+    Place zip files directly in the Mods directory.
+    Mods must match the server's game version.

@@ -1,3 +1,5 @@
+import type { ModSource } from "./server-instance.js";
+
 /**
  * Definition of a port required by a game server
  */
@@ -5,6 +7,54 @@ export interface PortDefinition {
   port: number;
   protocol: "tcp" | "udp" | "tcp+udp";
   description: string;
+}
+
+/**
+ * Mod file format and how it should be installed
+ */
+export type ModFileFormat =
+  | "zip-extract"       // Extract ZIP to install path
+  | "zip-keep"          // Keep as ZIP (e.g., Vintage Story)
+  | "jar"               // Java JAR file (Minecraft)
+  | "dll"               // .NET DLL (BepInEx plugins)
+  | "folder"            // Directory structure
+  | "cs"                // C# source (Oxide plugins)
+  | "lua";              // Lua scripts
+
+/**
+ * Framework/loader required for mods (if any)
+ */
+export interface ModFramework {
+  /** Framework name (e.g., "BepInEx", "Fabric", "Forge", "Oxide") */
+  name: string;
+  /** Source to download the framework from */
+  source: ModSource;
+  /** Identifier for the framework package */
+  packageId: string;
+  /** Whether the framework is required for any mods */
+  required: boolean;
+}
+
+/**
+ * Configuration for mod support in a game
+ */
+export interface ModsConfig {
+  /** Whether this game supports mods */
+  enabled: boolean;
+  /** Primary mod source for this game */
+  source: ModSource;
+  /** Additional supported sources */
+  additionalSources?: ModSource[];
+  /** How mod files are formatted/installed */
+  fileFormat: ModFileFormat;
+  /** Path where mods are installed (relative to server root) */
+  installPath: string;
+  /** Optional framework/loader required for mods */
+  framework?: ModFramework;
+  /** Base URL for the mod repository (for API calls) */
+  repositoryUrl?: string;
+  /** Notes about mod support for this game */
+  notes?: string;
 }
 
 /**
@@ -22,6 +72,8 @@ export interface PlaybookPaths {
   backup: string;
   update?: string;
   deprovision?: string;
+  /** Playbook for installing/updating mods */
+  installMods?: string;
 }
 
 /**
@@ -86,4 +138,6 @@ export interface GameDefinition {
   configSchema: ConfigSchema;
   /** Template for displaying server connection info */
   connectionTemplate?: ConnectionTemplate;
+  /** Configuration for mod support */
+  modsConfig?: ModsConfig;
 }

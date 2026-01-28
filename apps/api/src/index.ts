@@ -3,7 +3,7 @@ import "dotenv/config";
 import { initializeDatabase, closeDatabase } from "./db/index.js";
 import { getGameDefinitions, reloadGameDefinitions } from "./config/games.js";
 import { getPortConfig, reloadPortConfig } from "./config/ports.js";
-import { serverRoutes, jobRoutes, managerRoutes } from "./routes/index.js";
+import { serverRoutes, jobRoutes, managerRoutes, modRoutes } from "./routes/index.js";
 import { getPoolStats } from "./services/port-allocator.js";
 import { startJobRunner, stopJobRunner, getJobRunner } from "./services/job-runner.js";
 
@@ -52,6 +52,7 @@ fastify.get<{ Params: { id: string } }>("/games/:id", async (request, reply) => 
 fastify.register(serverRoutes);
 fastify.register(jobRoutes);
 fastify.register(managerRoutes);
+fastify.register(modRoutes);
 
 const port = parseInt(process.env.PORT ?? "3000", 10);
 const host = process.env.HOST ?? "0.0.0.0";

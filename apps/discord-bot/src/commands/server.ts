@@ -5,6 +5,7 @@ import {
   userMention,
 } from "discord.js";
 import * as api from "../api/client.js";
+import { buildModsEmbed } from "../interactions/mods.js";
 
 export const data = new SlashCommandBuilder()
   .setName("server")
@@ -87,6 +88,14 @@ export const data = new SlashCommandBuilder()
       .addStringOption((opt) =>
         opt.setName("server").setDescription("Server ID or name").setRequired(true)
       )
+  )
+  .addSubcommand((sub) =>
+    sub
+      .setName("mods")
+      .setDescription("Manage mods on a server")
+      .addStringOption((opt) =>
+        opt.setName("server").setDescription("Server ID or name").setRequired(true)
+      )
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
@@ -111,6 +120,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return handleAccess(interaction);
     case "delete":
       return handleDelete(interaction);
+    case "mods":
+      return handleMods(interaction);
     default:
       await interaction.reply({ content: "Unknown subcommand", ephemeral: true });
   }
@@ -470,6 +481,27 @@ async function handleDelete(interaction: ChatInputCommandInteraction) {
     .setFooter({ text: "The server will be removed once cleanup completes" });
 
   await interaction.editReply({ embeds: [embed] });
+}
+
+async function handleMods(interaction: ChatInputCommandInteraction) {
+  const serverQuery = interaction.options.getString("server", true);
+  await interaction.deferReply();
+
+  const server = await findServer(serverQuery, interaction.guildId!);
+  if (!server) {
+    await interaction.editReply(`Server not found: ${serverQuery}`);
+    return;
+  }
+
+  // Check permission
+  const canManage = await api.canManageServer(server.id, interaction.user.id);
+  if (canManage.error || !canManage.data?.canManage) {
+    await interaction.editReply("You don't have permission to manage mods on this server.");
+    return;
+  }
+
+  const { embed, components } = await buildModsEmbed(server.id, server.name, server.gameId);
+  await interaction.editReply({ embeds: [embed], components });
 }
 
 // Helper functions

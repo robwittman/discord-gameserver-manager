@@ -182,3 +182,70 @@ export async function canManageServer(
 ): Promise<ApiResponse<{ canManage: boolean; isOwner: boolean; isManager: boolean }>> {
   return request("GET", `/servers/${serverId}/can-manage?userId=${userId}`);
 }
+
+// Mod types
+export interface ModEntry {
+  source: string;
+  id: string;
+  version?: string;
+  enabled: boolean;
+  name?: string;
+}
+
+export interface ModsConfig {
+  enabled: boolean;
+  source: string;
+  additionalSources?: string[];
+  fileFormat: string;
+  installPath: string;
+  framework?: {
+    name: string;
+    source: string;
+    packageId: string;
+    required: boolean;
+  };
+  repositoryUrl?: string;
+  notes?: string;
+}
+
+// Mod API methods
+export async function getServerMods(
+  serverId: string
+): Promise<ApiResponse<{ mods: ModEntry[]; modsConfig: ModsConfig | null }>> {
+  return request("GET", `/servers/${serverId}/mods`);
+}
+
+export async function setServerMods(
+  serverId: string,
+  mods: ModEntry[]
+): Promise<ApiResponse<{ mods: ModEntry[] }>> {
+  return request("PUT", `/servers/${serverId}/mods`, { mods });
+}
+
+export async function addServerMod(
+  serverId: string,
+  mod: { source?: string; id: string; version?: string; enabled?: boolean; name?: string }
+): Promise<ApiResponse<{ mod: ModEntry; mods: ModEntry[] }>> {
+  return request("POST", `/servers/${serverId}/mods`, mod);
+}
+
+export async function removeServerMod(
+  serverId: string,
+  modId: string,
+  source?: string
+): Promise<ApiResponse<{ removed: ModEntry; mods: ModEntry[] }>> {
+  const query = source ? `?source=${encodeURIComponent(source)}` : "";
+  return request("DELETE", `/servers/${serverId}/mods/${encodeURIComponent(modId)}${query}`);
+}
+
+export async function toggleServerMod(
+  serverId: string,
+  modId: string,
+  options: { source?: string; enabled?: boolean; version?: string }
+): Promise<ApiResponse<{ mod: ModEntry; mods: ModEntry[] }>> {
+  const query = options.source ? `?source=${encodeURIComponent(options.source)}` : "";
+  return request("PATCH", `/servers/${serverId}/mods/${encodeURIComponent(modId)}${query}`, {
+    enabled: options.enabled,
+    version: options.version,
+  });
+}

@@ -33,6 +33,35 @@ export interface SftpAccess {
 export type ServerConfig = Record<string, string | number | boolean>;
 
 /**
+ * Supported mod sources/repositories
+ */
+export type ModSource =
+  | "thunderstore"
+  | "vintagestory"
+  | "curseforge"
+  | "steam-workshop"
+  | "nexusmods"
+  | "github"
+  | "url"
+  | "manual";
+
+/**
+ * A mod entry in a server's mod list
+ */
+export interface ModEntry {
+  /** Source where the mod comes from */
+  source: ModSource;
+  /** Identifier for the mod (format depends on source) */
+  id: string;
+  /** Optional specific version (default: latest) */
+  version?: string;
+  /** Whether this mod is enabled */
+  enabled: boolean;
+  /** Optional display name */
+  name?: string;
+}
+
+/**
  * A game server instance stored in the database
  */
 export interface ServerInstance {
@@ -52,6 +81,8 @@ export interface ServerInstance {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
+  /** List of installed mods */
+  mods?: ModEntry[];
 }
 
 /**

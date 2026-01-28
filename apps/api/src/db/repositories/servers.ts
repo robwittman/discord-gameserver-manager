@@ -7,6 +7,7 @@ import {
   type UpdateServerInput,
   type AllocatedPorts,
   type ServerConfig,
+  type ModEntry,
 } from "@discord-server-manager/shared";
 
 interface ServerRow {
@@ -24,9 +25,11 @@ interface ServerRow {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  mods: string | null;
 }
 
 function rowToServer(row: ServerRow): ServerInstance {
+  const mods = row.mods ? JSON.parse(row.mods) as ModEntry[] : [];
   return {
     id: row.id,
     gameId: row.game_id,
@@ -42,6 +45,7 @@ function rowToServer(row: ServerRow): ServerInstance {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at ?? undefined,
+    mods: mods.length > 0 ? mods : undefined,
   };
 }
 
@@ -58,8 +62,8 @@ export function createServer(
   const now = new Date().toISOString();
 
   const stmt = db.prepare(`
-    INSERT INTO servers (id, game_id, name, status, config, allocated_ports, owner_id, guild_id, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO servers (id, game_id, name, status, config, allocated_ports, mods, owner_id, guild_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -69,6 +73,7 @@ export function createServer(
     status,
     JSON.stringify(input.config),
     JSON.stringify(allocatedPorts),
+    JSON.stringify([]),
     input.ownerId,
     input.guildId,
     now,
@@ -277,4 +282,25 @@ export function getDeletedServers(): ServerInstance[] {
   const stmt = db.prepare("SELECT * FROM servers WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC");
   const rows = stmt.all() as ServerRow[];
   return rows.map(rowToServer);
+}
+
+/**
+ * Update a server's mod list
+ */
+export function updateServerMods(id: string, mods: ModEntry[]): ServerInstance | null {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+
+  const stmt = db.prepare(`
+    UPDATE servers
+    SET mods = ?, updated_at = ?
+    WHERE id = ? AND deleted_at IS NULL
+  `);
+
+  const result = stmt.run(JSON.stringify(mods), now, id);
+  if (result.changes === 0) {
+    return null;
+  }
+
+  return getServerById(id);
 }
