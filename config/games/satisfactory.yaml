@@ -8,15 +8,15 @@ lgsmServerName: sfserver
 ports:
   game:
     port: 7777
-    protocol: udp
-    description: "Game port"
+    protocol: tcp+udp
+    description: "Game port (TCP for API, UDP for game traffic)"
   beacon:
     port: 15000
-    protocol: udp
+    protocol: tcp+udp
     description: "Beacon port"
   query:
     port: 15777
-    protocol: udp
+    protocol: tcp+udp
     description: "Query port"
 
 resources:

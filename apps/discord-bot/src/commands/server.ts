@@ -450,19 +450,26 @@ async function handleDelete(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  // Only owner can delete
+  // Only owner can delete (also enforced by API)
   if (server.ownerId !== interaction.user.id) {
     await interaction.editReply("❌ Only the server owner can delete this server.");
     return;
   }
 
-  const result = await api.deleteServer(server.id);
+  const result = await api.deleteServer(server.id, interaction.user.id);
   if (result.error) {
     await interaction.editReply(`❌ Failed to delete server: ${result.error}`);
     return;
   }
 
-  await interaction.editReply(`✅ Server "${server.name}" has been deleted.`);
+  const embed = new EmbedBuilder()
+    .setTitle("🗑️ Server Deletion Started")
+    .setColor(0xff6600)
+    .setDescription(`Server "${server.name}" is being deleted. This includes cleaning up VMs, port forwarding rules, and other resources.`)
+    .addFields({ name: "Job ID", value: `\`${result.data!.job.id}\``, inline: false })
+    .setFooter({ text: "The server will be removed once cleanup completes" });
+
+  await interaction.editReply({ embeds: [embed] });
 }
 
 // Helper functions
@@ -504,6 +511,8 @@ function getStatusEmoji(status: string): string {
       return "⏳";
     case "pending_ports":
       return "⚠️";
+    case "deleting":
+      return "🗑️";
     case "error":
       return "❌";
     default:
@@ -522,6 +531,8 @@ function getStatusColor(status: string): number {
     case "pending":
     case "pending_ports":
       return 0xffa500;
+    case "deleting":
+      return 0xff6600;
     case "error":
       return 0xff0000;
     default:

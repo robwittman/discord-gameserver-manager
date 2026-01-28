@@ -8,6 +8,7 @@ export enum ServerStatus {
   Running = "running",
   Stopped = "stopped",
   Error = "error",
+  Deleting = "deleting",
 }
 
 /**
@@ -50,6 +51,7 @@ export interface ServerInstance {
   guildId: string;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string;
 }
 
 /**

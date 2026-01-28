@@ -23,6 +23,7 @@ interface ServerRow {
   guild_id: string;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
 }
 
 function rowToServer(row: ServerRow): ServerInstance {
@@ -40,6 +41,7 @@ function rowToServer(row: ServerRow): ServerInstance {
     guildId: row.guild_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    deletedAt: row.deleted_at ?? undefined,
   };
 }
 
@@ -89,10 +91,14 @@ export function createServer(
 
 /**
  * Get a server by ID
+ * @param includeDeleted - If true, includes soft-deleted servers
  */
-export function getServerById(id: string): ServerInstance | null {
+export function getServerById(id: string, includeDeleted: boolean = false): ServerInstance | null {
   const db = getDatabase();
-  const stmt = db.prepare("SELECT * FROM servers WHERE id = ?");
+  const query = includeDeleted
+    ? "SELECT * FROM servers WHERE id = ?"
+    : "SELECT * FROM servers WHERE id = ? AND deleted_at IS NULL";
+  const stmt = db.prepare(query);
   const row = stmt.get(id) as ServerRow | undefined;
   return row ? rowToServer(row) : null;
 }
@@ -102,7 +108,7 @@ export function getServerById(id: string): ServerInstance | null {
  */
 export function getServersByGuild(guildId: string): ServerInstance[] {
   const db = getDatabase();
-  const stmt = db.prepare("SELECT * FROM servers WHERE guild_id = ? ORDER BY created_at DESC");
+  const stmt = db.prepare("SELECT * FROM servers WHERE guild_id = ? AND deleted_at IS NULL ORDER BY created_at DESC");
   const rows = stmt.all(guildId) as ServerRow[];
   return rows.map(rowToServer);
 }
@@ -112,7 +118,7 @@ export function getServersByGuild(guildId: string): ServerInstance[] {
  */
 export function getServersByOwner(ownerId: string): ServerInstance[] {
   const db = getDatabase();
-  const stmt = db.prepare("SELECT * FROM servers WHERE owner_id = ? ORDER BY created_at DESC");
+  const stmt = db.prepare("SELECT * FROM servers WHERE owner_id = ? AND deleted_at IS NULL ORDER BY created_at DESC");
   const rows = stmt.all(ownerId) as ServerRow[];
   return rows.map(rowToServer);
 }
@@ -122,7 +128,7 @@ export function getServersByOwner(ownerId: string): ServerInstance[] {
  */
 export function getAllServers(): ServerInstance[] {
   const db = getDatabase();
-  const stmt = db.prepare("SELECT * FROM servers ORDER BY created_at DESC");
+  const stmt = db.prepare("SELECT * FROM servers WHERE deleted_at IS NULL ORDER BY created_at DESC");
   const rows = stmt.all() as ServerRow[];
   return rows.map(rowToServer);
 }
@@ -201,7 +207,7 @@ export function deleteServer(id: string): boolean {
  */
 export function getServersByStatus(status: ServerStatus): ServerInstance[] {
   const db = getDatabase();
-  const stmt = db.prepare("SELECT * FROM servers WHERE status = ? ORDER BY created_at DESC");
+  const stmt = db.prepare("SELECT * FROM servers WHERE status = ? AND deleted_at IS NULL ORDER BY created_at DESC");
   const rows = stmt.all(status) as ServerRow[];
   return rows.map(rowToServer);
 }
@@ -214,7 +220,7 @@ export function countServersByGame(guildId: string): Record<string, number> {
   const stmt = db.prepare(`
     SELECT game_id, COUNT(*) as count
     FROM servers
-    WHERE guild_id = ?
+    WHERE guild_id = ? AND deleted_at IS NULL
     GROUP BY game_id
   `);
   const rows = stmt.all(guildId) as Array<{ game_id: string; count: number }>;
@@ -244,4 +250,31 @@ export function updateServerPorts(id: string, allocatedPorts: AllocatedPorts): S
   }
 
   return getServerById(id);
+}
+
+/**
+ * Soft delete a server by setting deleted_at timestamp
+ */
+export function softDeleteServer(id: string): boolean {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+
+  const stmt = db.prepare(`
+    UPDATE servers
+    SET deleted_at = ?, updated_at = ?
+    WHERE id = ? AND deleted_at IS NULL
+  `);
+
+  const result = stmt.run(now, now, id);
+  return result.changes > 0;
+}
+
+/**
+ * Get all soft-deleted servers
+ */
+export function getDeletedServers(): ServerInstance[] {
+  const db = getDatabase();
+  const stmt = db.prepare("SELECT * FROM servers WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC");
+  const rows = stmt.all() as ServerRow[];
+  return rows.map(rowToServer);
 }

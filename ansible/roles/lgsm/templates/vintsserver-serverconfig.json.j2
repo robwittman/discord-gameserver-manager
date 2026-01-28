@@ -5,12 +5,7 @@
   "Port": {{ ports.game }},
   "MaxClients": {{ game_config.maxPlayers | default(16) }},
   "Password": "{{ game_config.password | default('') }}",
-  "PublicVisible": {{ game_config.public | default(true) | ternary('true', 'false') }},
-  "WorldName": "{{ game_config.worldName | default('default') }}",
-{% if game_config.worldSeed is defined and game_config.worldSeed %}
-  "WorldSeed": "{{ game_config.worldSeed }}",
-{% endif %}
-  "WorldPlayStyle": "surviveandbuild",
+  "AdvertiseServer": {{ game_config.public | default(true) | ternary('true', 'false') }},
   "AllowPvP": false,
   "AllowFireSpread": true,
   "Language": "en",
@@ -49,5 +44,19 @@
   "NormalDamageToPlayers": true,
   "ChatRateLimitMs": 1000,
   "DieBelowDiskSpaceMb": 400,
-  "NextPlayerGroupUid": 10
+  "NextPlayerGroupUid": 10,
+  "WorldConfig": {
+    "Seed": {% if game_config.worldSeed is defined and game_config.worldSeed %}"{{ game_config.worldSeed }}"{% else %}null{% endif %},
+    "SaveFileLocation": "{{ server_home }}/serverfiles/data/vintsserver/Saves/{{ game_config.worldName | default('default') }}.vcdbs",
+    "WorldName": "{{ game_config.worldName | default('default') }}",
+    "AllowCreativeMode": true,
+    "PlayStyle": "surviveandbuild",
+    "PlayStyleLangCode": "surviveandbuild-bands",
+    "WorldType": "standard",
+    "WorldConfiguration": null,
+    "MapSizeY": 256,
+    "CreatedByPlayerName": null,
+    "DisabledMods": null,
+    "RepairMode": false
+  }
 }

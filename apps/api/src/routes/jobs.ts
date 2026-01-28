@@ -153,6 +153,14 @@ function validateJobAction(currentStatus: ServerStatus, action: string, _hasVm: 
         return `Cannot deprovision server in ${currentStatus} status. Stop it first.`;
       }
       break;
+    case "delete":
+      if (currentStatus === "deleting") {
+        return "Server is already being deleted.";
+      }
+      if (currentStatus === "provisioning") {
+        return "Wait for provisioning to complete before deleting.";
+      }
+      break;
   }
   return null;
 }
@@ -163,6 +171,8 @@ function getStatusForAction(action: string): ServerStatus | null {
       return "provisioning" as ServerStatus;
     case "deprovision":
       return "pending" as ServerStatus;
+    case "delete":
+      return "deleting" as ServerStatus;
     default:
       return null;
   }

@@ -93,8 +93,8 @@ export class ApiClient {
     return this.request<CreateServerResponse>("POST", "/servers", input);
   }
 
-  async deleteServer(serverId: string): Promise<void> {
-    await this.request("DELETE", `/servers/${serverId}`);
+  async deleteServer(serverId: string, userId: string): Promise<{ message: string; job: Job }> {
+    return this.request("DELETE", `/servers/${serverId}`, { userId });
   }
 
   // Jobs

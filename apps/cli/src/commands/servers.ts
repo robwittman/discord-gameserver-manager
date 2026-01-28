@@ -175,8 +175,9 @@ export function registerServersCommand(program: Command): void {
   // Delete server
   servers
     .command("delete <serverId>")
-    .description("Delete a server")
+    .description("Delete a server (only owner can delete)")
     .option("-f, --force", "Skip confirmation")
+    .requiredOption("-u, --user-id <userId>", "User ID of the server owner (required for authorization)")
     .action(async (serverId, options) => {
       try {
         const api = getApiClient();
@@ -195,8 +196,8 @@ export function registerServersCommand(program: Command): void {
         }
 
         console.log(chalk.blue(`Deleting server "${server.name}"...`));
-        await api.deleteServer(serverId);
-        console.log(chalk.green("✓ Server deleted"));
+        const result = await api.deleteServer(serverId, options.userId);
+        console.log(chalk.green(`✓ Server deletion queued (job: ${result.job.id})`));
       } catch (error) {
         console.error(chalk.red("Error:"), error instanceof Error ? error.message : error);
         process.exit(1);

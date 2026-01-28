@@ -108,16 +108,26 @@ export function initializeDatabase(dbPath?: string): Database.Database {
 function runMigrations(database: Database.Database): void {
   // Migration: Add notification columns to jobs table
   const jobsColumns = database.prepare("PRAGMA table_info(jobs)").all() as Array<{ name: string }>;
-  const columnNames = jobsColumns.map((c) => c.name);
+  const jobColumnNames = jobsColumns.map((c) => c.name);
 
-  if (!columnNames.includes("notify_channel_id")) {
+  if (!jobColumnNames.includes("notify_channel_id")) {
     database.exec("ALTER TABLE jobs ADD COLUMN notify_channel_id TEXT");
     console.log("Migration: Added notify_channel_id column to jobs table");
   }
 
-  if (!columnNames.includes("notify_user_id")) {
+  if (!jobColumnNames.includes("notify_user_id")) {
     database.exec("ALTER TABLE jobs ADD COLUMN notify_user_id TEXT");
     console.log("Migration: Added notify_user_id column to jobs table");
+  }
+
+  // Migration: Add deleted_at column for soft delete
+  const serverColumns = database.prepare("PRAGMA table_info(servers)").all() as Array<{ name: string }>;
+  const serverColumnNames = serverColumns.map((c) => c.name);
+
+  if (!serverColumnNames.includes("deleted_at")) {
+    database.exec("ALTER TABLE servers ADD COLUMN deleted_at TEXT");
+    database.exec("CREATE INDEX IF NOT EXISTS idx_servers_deleted ON servers(deleted_at)");
+    console.log("Migration: Added deleted_at column to servers table");
   }
 }
 

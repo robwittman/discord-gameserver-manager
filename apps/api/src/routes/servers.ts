@@ -8,6 +8,7 @@ import {
   UpdateServerSchema,
   ListServersQuerySchema,
   ManualPortsSchema,
+  DeleteServerSchema,
 } from "./schemas.js";
 import { ServerStatus } from "@discord-server-manager/shared";
 import { generateServerPassword } from "../utils/password.js";
@@ -262,28 +263,70 @@ export async function serverRoutes(fastify: FastifyInstance) {
     return { server: updated };
   });
 
-  // Delete a server
+  // Delete a server (queues a delete job for proper cleanup)
+  // Only the server owner can delete a server
   fastify.delete<{ Params: { id: string } }>("/servers/:id", async (request, reply) => {
+    const parseResult = DeleteServerSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      reply.status(400);
+      return { error: "Invalid request body", details: parseResult.error.issues };
+    }
+
+    const { userId } = parseResult.data;
+
     const server = serversRepo.getServerById(request.params.id);
     if (!server) {
       reply.status(404);
       return { error: "Server not found" };
     }
 
-    // Check if server is running
-    if (server.status === "running" || server.status === "provisioning") {
+    // Only the owner can delete a server
+    if (server.ownerId !== userId) {
+      reply.status(403);
+      return { error: "Only the server owner can delete a server" };
+    }
+
+    // Check if server is already being deleted
+    if (server.status === "deleting") {
+      reply.status(409);
+      return { error: "Server is already being deleted" };
+    }
+
+    // Check if server is currently provisioning
+    if (server.status === "provisioning") {
+      reply.status(409);
+      return { error: "Wait for provisioning to complete before deleting" };
+    }
+
+    // Check for existing active jobs
+    const existingJobs = jobsRepo.getJobsByServer(server.id);
+    const activeJob = existingJobs.find(
+      (j) => j.status === "queued" || j.status === "running"
+    );
+    if (activeJob) {
       reply.status(409);
       return {
-        error: "Cannot delete server",
-        details: `Server is currently ${server.status}. Stop it first.`,
+        error: "Server has an active job",
+        details: { jobId: activeJob.id, action: activeJob.action, status: activeJob.status },
       };
     }
 
-    // Release ports and delete
-    releasePorts(server.id);
-    serversRepo.deleteServer(server.id);
+    // Queue a delete job
+    const job = jobsRepo.createJob({
+      serverId: server.id,
+      action: "delete",
+    });
 
-    reply.status(204);
-    return null;
+    // Update server status to deleting
+    serversRepo.updateServer(server.id, { status: ServerStatus.Deleting });
+
+    reply.status(202);
+    return { message: "Server deletion queued", job };
+  });
+
+  // Get deleted servers (admin endpoint)
+  fastify.get("/servers/deleted", async () => {
+    const servers = serversRepo.getDeletedServers();
+    return { servers };
   });
 }

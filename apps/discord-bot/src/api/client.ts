@@ -140,8 +140,8 @@ export async function getServerConnection(
   return request("GET", `/servers/${id}/connection`);
 }
 
-export async function deleteServer(id: string): Promise<ApiResponse<null>> {
-  return request("DELETE", `/servers/${id}`);
+export async function deleteServer(id: string, userId: string): Promise<ApiResponse<{ message: string; job: JobInfo }>> {
+  return request("DELETE", `/servers/${id}`, { userId });
 }
 
 export async function queueJob(

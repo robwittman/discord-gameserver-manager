@@ -5,6 +5,7 @@ import { isProxmoxConfigured, getProxmoxConfig } from "../config/proxmox.js";
 import { runPlaybook, type AnsibleVariables } from "./ansible.js";
 import { getVmProvisioner } from "./proxmox.js";
 import { getUniFiClient, isUniFiConfigured } from "./unifi.js";
+import { releasePorts } from "./port-allocator.js";
 import { ServerStatus, type Job, type ServerInstance, type GameDefinition } from "@discord-server-manager/shared";
 
 export interface ExecutionResult {
@@ -29,6 +30,7 @@ const actionHandlers: Record<string, ActionHandler> = {
   backup: handleBackup,
   update: handleUpdate,
   deprovision: handleDeprovision,
+  delete: handleDelete,
 };
 
 /**
@@ -99,6 +101,11 @@ export function updateServerStatusAfterJob(
   action: string,
   success: boolean
 ): void {
+  // Skip status update for delete action - record is already soft-deleted
+  if (action === "delete") {
+    return;
+  }
+
   let newStatus: ServerStatus;
 
   if (!success) {
@@ -132,11 +139,10 @@ export function updateServerStatusAfterJob(
 function buildAnsibleVars(ctx: JobContext): AnsibleVariables {
   const hostConfig = getHostConfig();
 
-  // Use game's default ports for the server itself (not allocated external ports)
-  const gamePorts: Record<string, number> = {};
-  for (const [name, portDef] of Object.entries(ctx.game.ports)) {
-    gamePorts[name] = portDef.port;
-  }
+  // Use allocated ports for the server config
+  // This ensures the game server listens on the same port that's externally exposed,
+  // which is required for games that don't support port translation (e.g., Satisfactory)
+  const ports = ctx.server.allocatedPorts;
 
   return {
     server_id: ctx.server.id,
@@ -144,9 +150,9 @@ function buildAnsibleVars(ctx: JobContext): AnsibleVariables {
     game_id: ctx.server.gameId,
     // LGSM server name for generic LGSM playbooks (e.g., "vhserver" for Valheim)
     lgsm_server_name: ctx.game.lgsmServerName,
-    // Use game's default ports for the server config
-    ports: gamePorts,
-    // Pass allocated ports separately (for reference/port forwarding)
+    // Use allocated ports for the server config (game listens on these)
+    ports: ports,
+    // Alias for backwards compatibility
     external_ports: ctx.server.allocatedPorts,
     config: ctx.server.config,
     game_config: ctx.server.config, // Alias for templates
@@ -203,14 +209,8 @@ async function handleProvision(ctx: JobContext): Promise<ExecutionResult> {
   const { game, server, log } = ctx;
 
   log(`Game: ${game.name}`);
-  log(`Allocated external ports: ${JSON.stringify(server.allocatedPorts)}`);
-
-  // Log the internal ports that will be used
-  const internalPorts: Record<string, number> = {};
-  for (const [name, portDef] of Object.entries(game.ports)) {
-    internalPorts[name] = portDef.port;
-  }
-  log(`Internal game ports: ${JSON.stringify(internalPorts)}`);
+  log(`Allocated ports: ${JSON.stringify(server.allocatedPorts)}`);
+  log(`Game server will listen on these ports (no port translation)`);
 
   // Check if we need to provision a VM first
   if (!server.internalAddress && isProxmoxConfigured()) {
@@ -299,13 +299,14 @@ async function createPortForwardingRules(ctx: JobContext): Promise<void> {
       continue;
     }
 
-    log(`Creating port forward: ${externalPort} -> ${server.internalAddress}:${portDef.port} (${portDef.protocol})`);
+    // Use the same port internally and externally (required for games that don't support port translation)
+    log(`Creating port forward: ${externalPort} -> ${server.internalAddress}:${externalPort} (${portDef.protocol})`);
 
     const rule = await unifi.createPortForward({
       name: ruleName,
       externalPort,
       internalIp: server.internalAddress,
-      internalPort: portDef.port,
+      internalPort: externalPort, // Same as external - game listens on allocated port
       protocol: portDef.protocol === "tcp+udp" ? "tcp_udp" : portDef.protocol,
     });
 
@@ -407,6 +408,79 @@ async function handleDeprovision(ctx: JobContext): Promise<ExecutionResult> {
   }
 
   log("Deprovision complete");
+  return { success: true, logs: [] };
+}
+
+async function handleDelete(ctx: JobContext): Promise<ExecutionResult> {
+  const { game, server, log } = ctx;
+
+  log(`Starting delete process for server ${server.name}`);
+
+  // 1. Stop server if running
+  if (server.status === ServerStatus.Running) {
+    log("Server is running, stopping first...");
+    const stopResult = await handleStop(ctx);
+    if (!stopResult.success) {
+      log(`Warning: Failed to stop server: ${stopResult.error}`);
+      // Continue with deletion anyway
+    } else {
+      log("Server stopped successfully");
+    }
+  }
+
+  // 2. Run deprovision playbook (optional, continue on failure)
+  if (game.playbooks.deprovision && server.internalAddress) {
+    log("Running deprovision playbook...");
+    try {
+      const result = await runPlaybookWithLogging(game.playbooks.deprovision, ctx);
+      if (!result.success) {
+        log(`Warning: Deprovision playbook failed: ${result.error}`);
+        // Continue with cleanup anyway
+      }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      log(`Warning: Deprovision playbook error: ${error}`);
+      // Continue with cleanup anyway
+    }
+  }
+
+  // 3. Delete port forwarding rules
+  if (isUniFiConfigured()) {
+    log("Removing port forwarding rules...");
+    try {
+      await deletePortForwardingRules(ctx);
+      log("Port forwarding rules removed");
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      log(`Warning: Failed to remove port forwarding rules: ${error}`);
+      // Continue with cleanup anyway
+    }
+  }
+
+  // 4. Destroy VM
+  if (server.vmId && isProxmoxConfigured()) {
+    log(`Destroying VM ${server.vmId}...`);
+    try {
+      const provisioner = getVmProvisioner();
+      await provisioner.destroyVm(server.vmId, server.vmNode);
+      log(`VM ${server.vmId} destroyed`);
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      log(`Warning: Failed to destroy VM: ${error}`);
+      // Continue with cleanup anyway - VM may already be gone
+    }
+  }
+
+  // 5. Release port allocations
+  log("Releasing port allocations...");
+  releasePorts(server.id);
+  log("Port allocations released");
+
+  // 6. Soft delete the record
+  log("Marking server as deleted...");
+  serversRepo.softDeleteServer(server.id);
+  log("Server deleted successfully");
+
   return { success: true, logs: [] };
 }
 
