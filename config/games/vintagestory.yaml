@@ -70,10 +70,10 @@ modsConfig:
   enabled: true
   source: vintagestory
   fileFormat: zip-keep
-  # Custom mods go in data/vintsserver/Mods, not serverfiles/Mods (which is for base game only)
+  # Custom mods go in data/vintsserver/Mods (separate from base game mods in serverfiles/Mods)
   installPath: data/vintsserver/Mods
   repositoryUrl: https://mods.vintagestory.at/
   notes: |
     Vintage Story mods are .zip files that should NOT be extracted.
-    Place zip files directly in the data/vintsserver/Mods directory.
     Mods must match the server's game version.
+    Server ModPaths must include "data/vintsserver/Mods".
