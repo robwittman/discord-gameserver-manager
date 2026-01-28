@@ -1,12 +1,34 @@
 ---
-# Download a single Vintage Story mod
+# Download a single Vintage Story mod using the Mod DB API
 # Called via include_tasks with loop
 # Variables: mod (the mod entry)
 
-- name: "Download mod: {{ mod.name | default(mod.id) }}"
+- name: "Fetch mod info from API: {{ mod.name | default(mod.id) }}"
+  uri:
+    url: "https://mods.vintagestory.at/api/mod/{{ mod.id }}"
+    method: GET
+    return_content: yes
+  register: mod_info
+  ignore_errors: yes
+
+- name: "Parse mod download URL"
+  when: mod_info is success and mod_info.json is defined
+  set_fact:
+    # Get the latest release, or find matching version if specified
+    mod_release: "{{ mod_info.json.mod.releases | first }}"
+    mod_name: "{{ mod_info.json.mod.name }}"
+
+- name: "Get download URL from release"
+  when: mod_release is defined and mod_release.files is defined
+  set_fact:
+    mod_download_url: "https://mods.vintagestory.at{{ (mod_release.files | first).fileUrl }}"
+    mod_filename: "{{ (mod_release.files | first).filename }}"
+
+- name: "Download mod: {{ mod_name | default(mod.id) }}"
+  when: mod_download_url is defined
   get_url:
-    url: "https://mods.vintagestory.at/{{ mod.id }}/download/{{ mod.version | default('latest') }}"
-    dest: "{{ mods_dir }}/{{ mod.id }}.zip"
+    url: "{{ mod_download_url }}"
+    dest: "{{ mods_dir }}/{{ mod_filename | default(mod.id + '.zip') }}"
     owner: "{{ server_user }}"
     group: "{{ server_user }}"
     mode: "0644"
@@ -14,6 +36,15 @@
   register: download_result
   ignore_errors: yes
 
-- name: "Check download result for {{ mod.id }}"
+- name: "Report download result"
   debug:
-    msg: "{{ 'Downloaded' if download_result is success else 'Failed to download' }} {{ mod.id }}"
+    msg: >-
+      {% if mod_info is failed %}
+      Failed to fetch mod info for {{ mod.id }} - mod may not exist
+      {% elif mod_download_url is not defined %}
+      No download URL found for {{ mod.id }}
+      {% elif download_result is success %}
+      Downloaded {{ mod_name | default(mod.id) }} ({{ mod_filename | default('unknown') }})
+      {% else %}
+      Failed to download {{ mod.id }}: {{ download_result.msg | default('unknown error') }}
+      {% endif %}
