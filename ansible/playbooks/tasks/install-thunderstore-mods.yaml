@@ -14,37 +14,11 @@
       register: mods_temp
 
     - name: Download and install enabled mods
+      include_tasks: download-thunderstore-mod.yaml
       loop: "{{ enabled_mods }}"
       loop_control:
         loop_var: mod
         label: "{{ mod.name | default(mod.id) }}"
-      block:
-        - name: "Parse mod ID: {{ mod.id }}"
-          set_fact:
-            mod_parts: "{{ mod.id.split('-') }}"
-
-        - name: "Download mod: {{ mod.name | default(mod.id) }}"
-          get_url:
-            # Thunderstore download URL format: /package/download/namespace/name/version/
-            url: "https://thunderstore.io/package/download/{{ mod_parts[0] }}/{{ mod_parts[1:] | join('-') }}/{{ mod.version | default('latest') }}/"
-            dest: "{{ mods_temp.path }}/{{ mod.id }}.zip"
-            mode: "0644"
-          register: download_result
-          ignore_errors: yes
-
-        - name: "Extract mod to plugins directory: {{ mod.id }}"
-          when: download_result is success
-          unarchive:
-            src: "{{ mods_temp.path }}/{{ mod.id }}.zip"
-            dest: "{{ mods_dir }}"
-            remote_src: yes
-            owner: "{{ server_user }}"
-            group: "{{ server_user }}"
-          ignore_errors: yes
-
-        - name: "Check result for {{ mod.id }}"
-          debug:
-            msg: "{{ 'Installed' if download_result is success else 'Failed to install' }} {{ mod.id }}"
 
     - name: Clean up temp directory
       file:

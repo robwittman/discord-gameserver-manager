@@ -2,7 +2,11 @@
 # Install mods from direct URLs
 # The mod.id field should contain the full URL to download
 #
-# Supports both zip-extract and zip-keep file formats based on mods_config.fileFormat
+# Supports multiple file formats based on mods_config.fileFormat:
+# - zip-keep: Keep as .zip file (e.g., Vintage Story)
+# - zip-extract: Extract .zip contents to mods dir
+# - dll: Download as .dll (BepInEx plugins)
+# - jar: Download as .jar (Minecraft)
 
 - name: Install URL-based mods
   block:
@@ -14,74 +18,11 @@
       when: mods_config.fileFormat == 'zip-extract'
 
     - name: Download and install enabled mods
+      include_tasks: download-url-mod.yaml
       loop: "{{ enabled_mods }}"
       loop_control:
         loop_var: mod
         label: "{{ mod.name | default(mod.id) }}"
-      block:
-        - name: "Determine filename for {{ mod.name | default(mod.id) }}"
-          set_fact:
-            mod_filename: "{{ mod.name | default(mod.id) | regex_replace('[^a-zA-Z0-9_-]', '_') }}"
-
-        # For zip-keep format (like Vintage Story)
-        - name: "Download mod (keep as zip): {{ mod.name | default(mod.id) }}"
-          when: mods_config.fileFormat == 'zip-keep'
-          get_url:
-            url: "{{ mod.id }}"
-            dest: "{{ mods_dir }}/{{ mod_filename }}.zip"
-            owner: "{{ server_user }}"
-            group: "{{ server_user }}"
-            mode: "0644"
-            force: yes
-          register: download_keep
-          ignore_errors: yes
-
-        # For zip-extract format
-        - name: "Download and extract mod: {{ mod.name | default(mod.id) }}"
-          when: mods_config.fileFormat == 'zip-extract'
-          block:
-            - name: Download mod zip
-              get_url:
-                url: "{{ mod.id }}"
-                dest: "{{ mods_temp.path }}/{{ mod_filename }}.zip"
-                mode: "0644"
-              register: download_extract
-
-            - name: Extract mod
-              when: download_extract is success
-              unarchive:
-                src: "{{ mods_temp.path }}/{{ mod_filename }}.zip"
-                dest: "{{ mods_dir }}"
-                remote_src: yes
-                owner: "{{ server_user }}"
-                group: "{{ server_user }}"
-          ignore_errors: yes
-
-        # For dll format (BepInEx plugins)
-        - name: "Download mod (dll): {{ mod.name | default(mod.id) }}"
-          when: mods_config.fileFormat == 'dll'
-          get_url:
-            url: "{{ mod.id }}"
-            dest: "{{ mods_dir }}/{{ mod_filename }}.dll"
-            owner: "{{ server_user }}"
-            group: "{{ server_user }}"
-            mode: "0644"
-            force: yes
-          register: download_dll
-          ignore_errors: yes
-
-        # For jar format (Minecraft)
-        - name: "Download mod (jar): {{ mod.name | default(mod.id) }}"
-          when: mods_config.fileFormat == 'jar'
-          get_url:
-            url: "{{ mod.id }}"
-            dest: "{{ mods_dir }}/{{ mod_filename }}.jar"
-            owner: "{{ server_user }}"
-            group: "{{ server_user }}"
-            mode: "0644"
-            force: yes
-          register: download_jar
-          ignore_errors: yes
 
     - name: Clean up temp directory
       when: mods_temp.path is defined

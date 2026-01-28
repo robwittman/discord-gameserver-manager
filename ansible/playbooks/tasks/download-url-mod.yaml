@@ -1,0 +1,67 @@
+---
+# Download a single mod from a URL
+# Called via include_tasks with loop
+# Variables: mod (the mod entry), mods_temp (temp directory, may be undefined), mods_config
+
+- name: "Determine filename for {{ mod.name | default(mod.id) }}"
+  set_fact:
+    mod_filename: "{{ mod.name | default(mod.id) | regex_replace('[^a-zA-Z0-9_-]', '_') }}"
+
+# For zip-keep format (like Vintage Story)
+- name: "Download mod (keep as zip): {{ mod.name | default(mod.id) }}"
+  when: mods_config.fileFormat == 'zip-keep'
+  get_url:
+    url: "{{ mod.id }}"
+    dest: "{{ mods_dir }}/{{ mod_filename }}.zip"
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: "0644"
+    force: yes
+  register: download_keep
+  ignore_errors: yes
+
+# For zip-extract format
+- name: "Download mod zip for extraction: {{ mod.name | default(mod.id) }}"
+  when: mods_config.fileFormat == 'zip-extract'
+  get_url:
+    url: "{{ mod.id }}"
+    dest: "{{ mods_temp.path }}/{{ mod_filename }}.zip"
+    mode: "0644"
+  register: download_extract
+  ignore_errors: yes
+
+- name: "Extract mod: {{ mod.name | default(mod.id) }}"
+  when: mods_config.fileFormat == 'zip-extract' and download_extract is success
+  unarchive:
+    src: "{{ mods_temp.path }}/{{ mod_filename }}.zip"
+    dest: "{{ mods_dir }}"
+    remote_src: yes
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+  ignore_errors: yes
+
+# For dll format (BepInEx plugins)
+- name: "Download mod (dll): {{ mod.name | default(mod.id) }}"
+  when: mods_config.fileFormat == 'dll'
+  get_url:
+    url: "{{ mod.id }}"
+    dest: "{{ mods_dir }}/{{ mod_filename }}.dll"
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: "0644"
+    force: yes
+  register: download_dll
+  ignore_errors: yes
+
+# For jar format (Minecraft)
+- name: "Download mod (jar): {{ mod.name | default(mod.id) }}"
+  when: mods_config.fileFormat == 'jar'
+  get_url:
+    url: "{{ mod.id }}"
+    dest: "{{ mods_dir }}/{{ mod_filename }}.jar"
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: "0644"
+    force: yes
+  register: download_jar
+  ignore_errors: yes

@@ -14,25 +14,11 @@
       register: existing_mods
 
     - name: Download enabled mods from Vintage Story Mod DB
+      include_tasks: download-vintagestory-mod.yaml
       loop: "{{ enabled_mods }}"
       loop_control:
         loop_var: mod
         label: "{{ mod.name | default(mod.id) }}"
-      block:
-        - name: "Download mod: {{ mod.name | default(mod.id) }}"
-          get_url:
-            url: "https://mods.vintagestory.at/{{ mod.id }}/download/{{ mod.version | default('latest') }}"
-            dest: "{{ mods_dir }}/{{ mod.id }}.zip"
-            owner: "{{ server_user }}"
-            group: "{{ server_user }}"
-            mode: "0644"
-            force: yes
-          register: download_result
-          ignore_errors: yes
-
-        - name: "Check download result for {{ mod.id }}"
-          debug:
-            msg: "{{ 'Downloaded' if download_result is success else 'Failed to download' }} {{ mod.id }}"
 
     - name: Remove disabled mods
       loop: "{{ mods | selectattr('enabled', 'equalto', false) | list }}"
