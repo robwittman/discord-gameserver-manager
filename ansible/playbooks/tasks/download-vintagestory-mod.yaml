@@ -12,17 +12,17 @@
   ignore_errors: yes
 
 - name: "Parse mod download URL"
-  when: mod_info is success and mod_info.json is defined
+  when: mod_info is success and mod_info.json is defined and mod_info.json.mod.releases | length > 0
   set_fact:
-    # Get the latest release, or find matching version if specified
+    # Get the latest release
     mod_release: "{{ mod_info.json.mod.releases | first }}"
     mod_name: "{{ mod_info.json.mod.name }}"
 
-- name: "Get download URL from release"
-  when: mod_release is defined and mod_release.files is defined
+- name: "Set download URL from release"
+  when: mod_release is defined and mod_release.mainfile is defined
   set_fact:
-    mod_download_url: "https://mods.vintagestory.at{{ (mod_release.files | first).fileUrl }}"
-    mod_filename: "{{ (mod_release.files | first).filename }}"
+    mod_download_url: "{{ mod_release.mainfile }}"
+    mod_filename: "{{ mod_release.filename }}"
 
 - name: "Download mod: {{ mod_name | default(mod.id) }}"
   when: mod_download_url is defined
