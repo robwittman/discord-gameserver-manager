@@ -47,6 +47,60 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Watch a job until it completes or fails, streaming logs in real-time.
+ * Exported for use by other commands with --watch flag.
+ */
+export async function watchJob(jobId: string, interval: number = 2000): Promise<boolean> {
+  const api = getApiClient();
+  let lastLogCount = 0;
+  let lastStatus = "";
+
+  console.log(chalk.blue(`\nWatching job ${jobId}...`));
+  console.log(chalk.gray("Press Ctrl+C to stop\n"));
+
+  while (true) {
+    const job = await api.getJob(jobId);
+
+    if (!job) {
+      console.error(chalk.red(`Job not found: ${jobId}`));
+      return false;
+    }
+
+    // Print new logs
+    if (job.logs && job.logs.length > lastLogCount) {
+      for (let i = lastLogCount; i < job.logs.length; i++) {
+        console.log(chalk.gray(job.logs[i]));
+      }
+      lastLogCount = job.logs.length;
+    }
+
+    // Print status change
+    if (job.status !== lastStatus) {
+      if (lastStatus) {
+        console.log();
+        console.log(chalk.bold(`Status: ${formatJobStatus(job.status)}`));
+      }
+      lastStatus = job.status;
+    }
+
+    // Exit if job is done
+    if (job.status === "completed") {
+      console.log();
+      console.log(chalk.green("✓ Job completed successfully"));
+      return true;
+    }
+
+    if (job.status === "failed") {
+      console.log();
+      console.log(chalk.red(`✖ Job failed: ${job.error || "Unknown error"}`));
+      return false;
+    }
+
+    await sleep(interval);
+  }
+}
+
 export function registerJobsCommand(program: Command): void {
   const jobs = program
     .command("jobs")
@@ -110,53 +164,10 @@ export function registerJobsCommand(program: Command): void {
     .option("-i, --interval <ms>", "Poll interval in milliseconds", "2000")
     .action(async (jobId, options) => {
       try {
-        const api = getApiClient();
         const interval = parseInt(options.interval, 10);
-        let lastLogCount = 0;
-        let lastStatus = "";
-
-        console.log(chalk.blue(`Watching job ${jobId}...`));
-        console.log(chalk.gray("Press Ctrl+C to stop\n"));
-
-        while (true) {
-          const job = await api.getJob(jobId);
-
-          if (!job) {
-            console.error(chalk.red(`Job not found: ${jobId}`));
-            process.exit(1);
-          }
-
-          // Print new logs
-          if (job.logs && job.logs.length > lastLogCount) {
-            for (let i = lastLogCount; i < job.logs.length; i++) {
-              console.log(chalk.gray(job.logs[i]));
-            }
-            lastLogCount = job.logs.length;
-          }
-
-          // Print status change
-          if (job.status !== lastStatus) {
-            if (lastStatus) {
-              console.log();
-              console.log(chalk.bold(`Status: ${formatJobStatus(job.status)}`));
-            }
-            lastStatus = job.status;
-          }
-
-          // Exit if job is done
-          if (job.status === "completed") {
-            console.log();
-            console.log(chalk.green("✓ Job completed successfully"));
-            break;
-          }
-
-          if (job.status === "failed") {
-            console.log();
-            console.log(chalk.red(`✖ Job failed: ${job.error || "Unknown error"}`));
-            process.exit(1);
-          }
-
-          await sleep(interval);
+        const success = await watchJob(jobId, interval);
+        if (!success) {
+          process.exit(1);
         }
       } catch (error) {
         console.error(chalk.red("Error:"), error instanceof Error ? error.message : error);

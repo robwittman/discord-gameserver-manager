@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { getApiClient } from "../api/client.js";
+import { watchJob } from "./jobs.js";
 import type { ServerInstance } from "@discord-server-manager/shared";
 
 function formatStatus(status: string): string {
@@ -13,6 +14,8 @@ function formatStatus(status: string): string {
       return chalk.blue("◐ provisioning");
     case "pending":
       return chalk.gray("◌ pending");
+    case "deleting":
+      return chalk.magenta("◐ deleting");
     case "error":
       return chalk.red("✖ error");
     default:
@@ -25,6 +28,7 @@ function formatServer(server: ServerInstance, verbose = false): void {
   console.log(chalk.bold(server.name), chalk.gray(`(${server.id})`));
   console.log(`  Game:    ${server.gameId}`);
   console.log(`  Status:  ${formatStatus(server.status)}`);
+  console.log(`  Owner:   ${server.ownerId}`);
 
   if (server.internalAddress) {
     console.log(`  Address: ${server.internalAddress}`);
@@ -38,7 +42,6 @@ function formatServer(server: ServerInstance, verbose = false): void {
   }
 
   if (verbose) {
-    console.log(`  Owner:   ${server.ownerId}`);
     console.log(`  Guild:   ${server.guildId}`);
     console.log(`  Created: ${server.createdAt}`);
     if (server.vmId) {
@@ -177,6 +180,7 @@ export function registerServersCommand(program: Command): void {
     .command("delete <serverId>")
     .description("Delete a server (only owner can delete)")
     .option("-f, --force", "Skip confirmation")
+    .option("-w, --watch", "Watch job progress after queuing")
     .requiredOption("-u, --user-id <userId>", "User ID of the server owner (required for authorization)")
     .action(async (serverId, options) => {
       try {
@@ -198,6 +202,15 @@ export function registerServersCommand(program: Command): void {
         console.log(chalk.blue(`Deleting server "${server.name}"...`));
         const result = await api.deleteServer(serverId, options.userId);
         console.log(chalk.green(`✓ Server deletion queued (job: ${result.job.id})`));
+
+        if (options.watch) {
+          const success = await watchJob(result.job.id);
+          if (!success) {
+            process.exit(1);
+          }
+        } else {
+          console.log(chalk.gray(`Run 'gsm jobs watch ${result.job.id}' to monitor progress`));
+        }
       } catch (error) {
         console.error(chalk.red("Error:"), error instanceof Error ? error.message : error);
         process.exit(1);
@@ -211,7 +224,8 @@ export function registerServersCommand(program: Command): void {
     servers
       .command(`${action} <serverId>`)
       .description(`${action.charAt(0).toUpperCase() + action.slice(1)} a server`)
-      .action(async (serverId) => {
+      .option("-w, --watch", "Watch job progress after queuing")
+      .action(async (serverId, options) => {
         try {
           const api = getApiClient();
           const server = await api.getServer(serverId);
@@ -224,9 +238,17 @@ export function registerServersCommand(program: Command): void {
           console.log(chalk.blue(`Queueing ${action} job for "${server.name}"...`));
           const job = await api.createJob(serverId, action);
 
-          console.log(chalk.green(`\n✓ Job queued: ${job.id}`));
-          console.log(chalk.gray(`Run 'gsm jobs watch ${job.id}' to monitor progress`));
-          console.log();
+          console.log(chalk.green(`✓ Job queued: ${job.id}`));
+
+          if (options.watch) {
+            const success = await watchJob(job.id);
+            if (!success) {
+              process.exit(1);
+            }
+          } else {
+            console.log(chalk.gray(`Run 'gsm jobs watch ${job.id}' to monitor progress`));
+            console.log();
+          }
         } catch (error) {
           console.error(chalk.red("Error:"), error instanceof Error ? error.message : error);
           process.exit(1);
