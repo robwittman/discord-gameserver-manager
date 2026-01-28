@@ -99,6 +99,14 @@ export class ApiClient {
     return this.request("DELETE", `/servers/${serverId}`, { userId });
   }
 
+  async updateServer(
+    serverId: string,
+    updates: { name?: string; status?: string; config?: Record<string, unknown> }
+  ): Promise<ServerInstance> {
+    const result = await this.request<{ server: ServerInstance }>("PATCH", `/servers/${serverId}`, updates);
+    return result.server;
+  }
+
   // Jobs
   async listJobs(serverId?: string): Promise<Job[]> {
     const path = serverId ? `/servers/${serverId}/jobs` : "/jobs";

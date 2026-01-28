@@ -255,4 +255,36 @@ export function registerServersCommand(program: Command): void {
         }
       });
   }
+
+  // Set server status (admin operation)
+  servers
+    .command("set-status <serverId> <status>")
+    .description("Manually set server status (admin operation)")
+    .action(async (serverId, status) => {
+      const validStatuses = ["pending", "pending_ports", "provisioning", "running", "stopped", "error", "deleting"];
+
+      if (!validStatuses.includes(status)) {
+        console.error(chalk.red(`Invalid status: ${status}`));
+        console.log(chalk.yellow(`Valid statuses: ${validStatuses.join(", ")}`));
+        process.exit(1);
+      }
+
+      try {
+        const api = getApiClient();
+        const server = await api.getServer(serverId);
+
+        if (!server) {
+          console.error(chalk.red(`Server not found: ${serverId}`));
+          process.exit(1);
+        }
+
+        console.log(chalk.blue(`Updating server "${server.name}" status: ${server.status} -> ${status}`));
+        const updated = await api.updateServer(serverId, { status });
+
+        console.log(chalk.green(`✓ Status updated to: ${updated.status}`));
+      } catch (error) {
+        console.error(chalk.red("Error:"), error instanceof Error ? error.message : error);
+        process.exit(1);
+      }
+    });
 }
