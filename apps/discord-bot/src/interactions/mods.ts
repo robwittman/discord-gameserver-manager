@@ -205,11 +205,9 @@ export function buildAddModsModal(serverId: string): ModalBuilder {
 
   const modsInput = new TextInputBuilder()
     .setCustomId("mods_input")
-    .setLabel("Mod IDs (one per line)")
+    .setLabel("Mod IDs (one per line, optional @version)")
     .setStyle(TextInputStyle.Paragraph)
-    .setPlaceholder(
-      "Enter mod IDs, one per line:\ndenikson-BepInExPack_Valheim\nRandyKnapp-EquipmentAndQuickSlots@2.0.0\n\nOptional: add @version after mod ID"
-    )
+    .setPlaceholder("mod-id-here\nanother-mod@1.0.0")
     .setRequired(true)
     .setMinLength(1)
     .setMaxLength(2000);
