@@ -1,14 +1,20 @@
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import "dotenv/config";
 import { initializeDatabase, closeDatabase } from "./db/index.js";
 import { getGameDefinitions, reloadGameDefinitions } from "./config/games.js";
 import { getPortConfig, reloadPortConfig } from "./config/ports.js";
-import { serverRoutes, jobRoutes, managerRoutes, modRoutes, sftpRoutes } from "./routes/index.js";
+import { serverRoutes, jobRoutes, managerRoutes, modRoutes, sftpRoutes, metricsRoutes } from "./routes/index.js";
 import { getPoolStats } from "./services/port-allocator.js";
 import { startJobRunner, stopJobRunner, getJobRunner } from "./services/job-runner.js";
 
 const fastify = Fastify({
   logger: true,
+});
+
+// Enable CORS for dashboard
+await fastify.register(cors, {
+  origin: true, // Allow all origins for local development
 });
 
 // Health check endpoint
@@ -54,6 +60,7 @@ fastify.register(jobRoutes);
 fastify.register(managerRoutes);
 fastify.register(modRoutes);
 fastify.register(sftpRoutes);
+fastify.register(metricsRoutes);
 
 const port = parseInt(process.env.PORT ?? "3000", 10);
 const host = process.env.HOST ?? "0.0.0.0";

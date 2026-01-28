@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@discord-server-manager/shared": "workspace:*",
+    "@fastify/cors": "^10.0.0",
     "better-sqlite3": "^11.7.0",
     "dotenv": "^16.4.0",
     "fastify": "^5.2.0",

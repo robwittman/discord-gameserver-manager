@@ -8,6 +8,7 @@ import { registerJobsCommand } from "./commands/jobs.js";
 import { registerGamesCommand } from "./commands/games.js";
 import { registerModsCommand } from "./commands/mods.js";
 import { registerSftpCommand } from "./commands/sftp.js";
+import { registerDashboardCommand } from "./commands/dashboard.js";
 
 const program = new Command();
 
@@ -56,6 +57,7 @@ registerJobsCommand(program);
 registerGamesCommand(program);
 registerModsCommand(program);
 registerSftpCommand(program);
+registerDashboardCommand(program);
 
 // Parse and handle global options
 program.hook("preAction", (thisCommand) => {
