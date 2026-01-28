@@ -96,6 +96,26 @@ export const data = new SlashCommandBuilder()
       .addStringOption((opt) =>
         opt.setName("server").setDescription("Server ID or name").setRequired(true)
       )
+  )
+  .addSubcommand((sub) =>
+    sub
+      .setName("sftp")
+      .setDescription("Manage SFTP file access for a server")
+      .addStringOption((opt) =>
+        opt.setName("server").setDescription("Server ID or name").setRequired(true)
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName("action")
+          .setDescription("Action to perform")
+          .setRequired(true)
+          .addChoices(
+            { name: "Enable SFTP", value: "enable" },
+            { name: "Show connection info", value: "info" },
+            { name: "Disable SFTP", value: "disable" },
+            { name: "Reset password", value: "reset-password" }
+          )
+      )
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
@@ -122,6 +142,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return handleDelete(interaction);
     case "mods":
       return handleMods(interaction);
+    case "sftp":
+      return handleSftp(interaction);
     default:
       await interaction.reply({ content: "Unknown subcommand", ephemeral: true });
   }
@@ -502,6 +524,129 @@ async function handleMods(interaction: ChatInputCommandInteraction) {
 
   const { embed, components } = await buildModsEmbed(server.id, server.name, server.gameId);
   await interaction.editReply({ embeds: [embed], components });
+}
+
+async function handleSftp(interaction: ChatInputCommandInteraction) {
+  const serverQuery = interaction.options.getString("server", true);
+  const action = interaction.options.getString("action", true);
+
+  await interaction.deferReply({ ephemeral: action === "enable" || action === "reset-password" });
+
+  const server = await findServer(serverQuery, interaction.guildId!);
+  if (!server) {
+    await interaction.editReply(`Server not found: ${serverQuery}`);
+    return;
+  }
+
+  // Check permission
+  const canManage = await api.canManageServer(server.id, interaction.user.id);
+  if (canManage.error || !canManage.data?.canManage) {
+    await interaction.editReply("You don't have permission to manage SFTP access for this server.");
+    return;
+  }
+
+  switch (action) {
+    case "enable": {
+      const result = await api.enableSftp(server.id, interaction.user.id);
+      if (result.error) {
+        await interaction.editReply(`Failed to enable SFTP: ${result.error}`);
+        return;
+      }
+
+      const creds = result.data!.credentials;
+      const embed = new EmbedBuilder()
+        .setTitle("SFTP Access Enabled")
+        .setColor(0x00ff00)
+        .setDescription("SFTP file access has been enabled for your server. Save these credentials - the password won't be shown again!")
+        .addFields(
+          { name: "Host", value: creds.host, inline: true },
+          { name: "Port", value: String(creds.port), inline: true },
+          { name: "Username", value: creds.username, inline: true },
+          { name: "Password", value: `\`${creds.password}\``, inline: false },
+          { name: "Path", value: creds.path, inline: true }
+        )
+        .addFields({
+          name: "Connection Command",
+          value: `\`\`\`sftp -P ${creds.port} ${creds.username}@${creds.host}\`\`\``,
+          inline: false,
+        })
+        .setFooter({ text: "This message is only visible to you" });
+
+      await interaction.editReply({ embeds: [embed] });
+      break;
+    }
+
+    case "info": {
+      const result = await api.getSftpInfo(server.id);
+      if (result.error) {
+        await interaction.editReply(`SFTP is not enabled for this server. Use \`/server sftp\` with action "Enable SFTP" to enable it.`);
+        return;
+      }
+
+      const info = result.data!;
+      const embed = new EmbedBuilder()
+        .setTitle(`SFTP Access: ${server.name}`)
+        .setColor(0x5865f2)
+        .addFields(
+          { name: "Host", value: info.host, inline: true },
+          { name: "Port", value: String(info.port), inline: true },
+          { name: "Username", value: info.username, inline: true },
+          { name: "Path", value: info.path, inline: true },
+          { name: "Enabled Since", value: new Date(info.createdAt).toLocaleDateString(), inline: true }
+        )
+        .addFields({
+          name: "Connection Command",
+          value: `\`\`\`sftp -P ${info.port} ${info.username}@${info.host}\`\`\``,
+          inline: false,
+        })
+        .setFooter({ text: "Forgot your password? Use action 'Reset password'" });
+
+      await interaction.editReply({ embeds: [embed] });
+      break;
+    }
+
+    case "disable": {
+      const result = await api.disableSftp(server.id);
+      if (result.error) {
+        await interaction.editReply(`Failed to disable SFTP: ${result.error}`);
+        return;
+      }
+
+      const embed = new EmbedBuilder()
+        .setTitle("SFTP Access Disabled")
+        .setColor(0xff6600)
+        .setDescription(`SFTP file access has been disabled for ${server.name}.`)
+        .addFields({ name: "Job ID", value: `\`${result.data!.job.id}\``, inline: false });
+
+      await interaction.editReply({ embeds: [embed] });
+      break;
+    }
+
+    case "reset-password": {
+      const result = await api.resetSftpPassword(server.id);
+      if (result.error) {
+        await interaction.editReply(`Failed to reset SFTP password: ${result.error}`);
+        return;
+      }
+
+      const creds = result.data!.credentials;
+      const embed = new EmbedBuilder()
+        .setTitle("SFTP Password Reset")
+        .setColor(0x00ff00)
+        .setDescription("Your SFTP password has been reset. Save the new password - it won't be shown again!")
+        .addFields(
+          { name: "Host", value: creds.host, inline: true },
+          { name: "Port", value: String(creds.port), inline: true },
+          { name: "Username", value: creds.username, inline: true },
+          { name: "New Password", value: `\`${creds.password}\``, inline: false },
+          { name: "Path", value: creds.path, inline: true }
+        )
+        .setFooter({ text: "This message is only visible to you" });
+
+      await interaction.editReply({ embeds: [embed] });
+      break;
+    }
+  }
 }
 
 // Helper functions

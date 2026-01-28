@@ -1,0 +1,19 @@
+---
+# Setup SFTP Access for a Game Server
+#
+# Variables passed from job executor:
+#   - server_id: Unique server identifier
+#   - game_id: Game identifier (e.g., "valheim")
+#   - sftp_password: Plaintext password for SFTP access
+
+- name: Setup SFTP Access
+  hosts: all
+  become: yes
+  vars:
+    server_user: "gs_{{ server_id | regex_replace('-', '') | truncate(8, True, '') }}"
+    server_home: "/opt/gameservers/{{ game_id }}/{{ server_id }}"
+
+  roles:
+    - role: sftp
+      vars:
+        sftp_password: "{{ sftp_password }}"

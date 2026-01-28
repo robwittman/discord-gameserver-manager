@@ -6,6 +6,8 @@ interface SftpAccessRow {
   server_id: string;
   user_id: string;
   username: string;
+  password_hash: string | null;
+  port: number | null;
   created_at: string;
 }
 
@@ -15,6 +17,7 @@ function rowToSftpAccess(row: SftpAccessRow): SftpAccess {
     serverId: row.server_id,
     userId: row.user_id,
     username: row.username,
+    port: row.port ?? 0,
     createdAt: row.created_at,
   };
 }
@@ -25,23 +28,26 @@ function rowToSftpAccess(row: SftpAccessRow): SftpAccess {
 export function createSftpAccess(
   serverId: string,
   userId: string,
-  username: string
+  username: string,
+  passwordHash: string,
+  port: number
 ): SftpAccess {
   const db = getDatabase();
   const now = new Date().toISOString();
 
   const stmt = db.prepare(`
-    INSERT INTO sftp_access (server_id, user_id, username, created_at)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO sftp_access (server_id, user_id, username, password_hash, port, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
   `);
 
-  const result = stmt.run(serverId, userId, username, now);
+  const result = stmt.run(serverId, userId, username, passwordHash, port, now);
 
   return {
     id: Number(result.lastInsertRowid),
     serverId,
     userId,
     username,
+    port,
     createdAt: now,
   };
 }
@@ -94,4 +100,34 @@ export function deleteSftpAccessByServer(serverId: string): number {
   const stmt = db.prepare("DELETE FROM sftp_access WHERE server_id = ?");
   const result = stmt.run(serverId);
   return result.changes;
+}
+
+/**
+ * Get the SFTP access for a server (first one, typically only one per server)
+ */
+export function getSftpAccessByServerId(serverId: string): SftpAccess | null {
+  const db = getDatabase();
+  const stmt = db.prepare("SELECT * FROM sftp_access WHERE server_id = ? LIMIT 1");
+  const row = stmt.get(serverId) as SftpAccessRow | undefined;
+  return row ? rowToSftpAccess(row) : null;
+}
+
+/**
+ * Get the allocated SFTP port for a server
+ */
+export function getSftpPort(serverId: string): number | null {
+  const db = getDatabase();
+  const stmt = db.prepare("SELECT port FROM sftp_access WHERE server_id = ? LIMIT 1");
+  const row = stmt.get(serverId) as { port: number | null } | undefined;
+  return row?.port ?? null;
+}
+
+/**
+ * Update the password hash for a server's SFTP access
+ */
+export function updateSftpPasswordHash(serverId: string, passwordHash: string): boolean {
+  const db = getDatabase();
+  const stmt = db.prepare("UPDATE sftp_access SET password_hash = ? WHERE server_id = ?");
+  const result = stmt.run(passwordHash, serverId);
+  return result.changes > 0;
 }

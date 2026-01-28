@@ -1,0 +1,42 @@
+---
+# SFTP Role
+# Configure SFTP access for a game server
+#
+# Required variables:
+#   - server_user: Linux username (gs_xxx)
+#   - server_home: /opt/gameservers/{game}/{serverid}
+#   - sftp_password: Plaintext password (will be hashed)
+
+- name: Set user password for SFTP access
+  user:
+    name: "{{ server_user }}"
+    password: "{{ sftp_password | password_hash('sha512') }}"
+    update_password: always
+
+- name: Add SFTP configuration to sshd_config
+  blockinfile:
+    path: /etc/ssh/sshd_config
+    marker: "# {mark} SFTP CONFIG FOR {{ server_user }}"
+    block: |
+      Match User {{ server_user }}
+        ForceCommand internal-sftp
+        ChrootDirectory {{ server_home }}
+        AllowTcpForwarding no
+        X11Forwarding no
+        PasswordAuthentication yes
+  notify: Reload sshd
+
+- name: Set correct ownership for chroot (root must own chroot directory)
+  file:
+    path: "{{ server_home }}"
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Ensure serverfiles directory exists and is writable by user
+  file:
+    path: "{{ server_home }}/serverfiles"
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: '0755'
+    state: directory

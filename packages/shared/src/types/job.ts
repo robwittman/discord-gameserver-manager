@@ -11,7 +11,18 @@ export enum JobStatus {
 /**
  * Types of actions a job can perform
  */
-export type JobAction = "provision" | "start" | "stop" | "backup" | "update" | "deprovision" | "delete" | "install-mods";
+export type JobAction =
+  | "provision"
+  | "start"
+  | "stop"
+  | "backup"
+  | "update"
+  | "deprovision"
+  | "delete"
+  | "install-mods"
+  | "setup-sftp"
+  | "disable-sftp"
+  | "reset-sftp-password";
 
 /**
  * A provisioning job for managing servers

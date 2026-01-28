@@ -4,6 +4,7 @@ import type {
   GameDefinition,
   ModEntry,
   ModsConfig,
+  SftpCredentials,
 } from "@discord-server-manager/shared";
 
 export interface ApiClientConfig {
@@ -170,6 +171,41 @@ export class ApiClient {
   // Stats
   async stats(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>("GET", "/stats");
+  }
+
+  // SFTP
+  async enableSftp(serverId: string, userId?: string): Promise<{ credentials: SftpCredentials; job: Job }> {
+    return this.request<{ credentials: SftpCredentials; job: Job }>("POST", `/servers/${serverId}/sftp`, { userId });
+  }
+
+  async getSftpInfo(serverId: string): Promise<{
+    enabled: boolean;
+    host: string;
+    port: number;
+    username: string;
+    path: string;
+    createdAt: string;
+  } | null> {
+    try {
+      return await this.request<{
+        enabled: boolean;
+        host: string;
+        port: number;
+        username: string;
+        path: string;
+        createdAt: string;
+      }>("GET", `/servers/${serverId}/sftp`);
+    } catch {
+      return null;
+    }
+  }
+
+  async disableSftp(serverId: string): Promise<{ message: string; job: Job }> {
+    return this.request<{ message: string; job: Job }>("DELETE", `/servers/${serverId}/sftp`);
+  }
+
+  async resetSftpPassword(serverId: string): Promise<{ credentials: SftpCredentials; job: Job }> {
+    return this.request<{ credentials: SftpCredentials; job: Job }>("POST", `/servers/${serverId}/sftp/reset-password`);
   }
 }
 

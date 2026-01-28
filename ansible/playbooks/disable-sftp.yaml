@@ -1,0 +1,18 @@
+---
+# Disable SFTP Access for a Game Server
+#
+# Variables passed from job executor:
+#   - server_id: Unique server identifier
+#   - game_id: Game identifier (e.g., "valheim")
+
+- name: Disable SFTP Access
+  hosts: all
+  become: yes
+  vars:
+    server_user: "gs_{{ server_id | regex_replace('-', '') | truncate(8, True, '') }}"
+
+  tasks:
+    - name: Include SFTP disable tasks
+      include_role:
+        name: sftp
+        tasks_from: disable.yaml

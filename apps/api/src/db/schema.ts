@@ -135,6 +135,19 @@ function runMigrations(database: Database.Database): void {
     database.exec("ALTER TABLE servers ADD COLUMN mods JSON DEFAULT '[]'");
     console.log("Migration: Added mods column to servers table");
   }
+
+  // Migration: Add SFTP columns (password_hash and port)
+  const sftpColumns = database.prepare("PRAGMA table_info(sftp_access)").all() as Array<{ name: string }>;
+  const sftpColumnNames = sftpColumns.map((c) => c.name);
+
+  if (!sftpColumnNames.includes("password_hash")) {
+    database.exec("ALTER TABLE sftp_access ADD COLUMN password_hash TEXT");
+    console.log("Migration: Added password_hash column to sftp_access table");
+  }
+  if (!sftpColumnNames.includes("port")) {
+    database.exec("ALTER TABLE sftp_access ADD COLUMN port INTEGER");
+    console.log("Migration: Added port column to sftp_access table");
+  }
 }
 
 /**

@@ -1,4 +1,4 @@
-import { serversRepo, jobsRepo } from "../db/index.js";
+import { serversRepo, jobsRepo, sftpRepo } from "../db/index.js";
 import { getGameDefinition } from "../config/games.js";
 import { getHostConfig } from "../config/ports.js";
 import { isProxmoxConfigured, getProxmoxConfig } from "../config/proxmox.js";
@@ -32,6 +32,9 @@ const actionHandlers: Record<string, ActionHandler> = {
   deprovision: handleDeprovision,
   delete: handleDelete,
   "install-mods": handleInstallMods,
+  "setup-sftp": handleSetupSftp,
+  "disable-sftp": handleDisableSftp,
+  "reset-sftp-password": handleResetSftpPassword,
 };
 
 /**
@@ -570,4 +573,96 @@ async function deletePortForwardingRules(ctx: JobContext): Promise<void> {
       }
     }
   }
+}
+
+// SFTP Action Handlers
+
+async function handleSetupSftp(ctx: JobContext): Promise<ExecutionResult> {
+  const { server, log } = ctx;
+
+  // Get SFTP password from server config (stored temporarily by API)
+  const config = server.config as Record<string, unknown>;
+  const sftpPassword = config._sftpPassword as string | undefined;
+
+  if (!sftpPassword) {
+    return {
+      success: false,
+      error: "SFTP password not found in server config",
+      logs: [],
+    };
+  }
+
+  log("Setting up SFTP access...");
+
+  // Run the setup-sftp playbook
+  const result = await runPlaybookWithLogging(
+    "ansible/playbooks/setup-sftp.yaml",
+    ctx,
+    { sftp_password: sftpPassword }
+  );
+
+  if (result.success) {
+    // Clear the temporary password from server config
+    const cleanConfig = { ...config };
+    delete cleanConfig._sftpPassword;
+    serversRepo.updateServer(server.id, { config: cleanConfig as Record<string, string | number | boolean> });
+    log("SFTP access configured successfully");
+  }
+
+  return result;
+}
+
+async function handleDisableSftp(ctx: JobContext): Promise<ExecutionResult> {
+  const { server, log } = ctx;
+
+  log("Disabling SFTP access...");
+
+  // Run the disable-sftp playbook
+  const result = await runPlaybookWithLogging(
+    "ansible/playbooks/disable-sftp.yaml",
+    ctx
+  );
+
+  if (result.success) {
+    // Delete SFTP access record
+    sftpRepo.deleteSftpAccessByServer(server.id);
+    log("SFTP access disabled and record deleted");
+  }
+
+  return result;
+}
+
+async function handleResetSftpPassword(ctx: JobContext): Promise<ExecutionResult> {
+  const { server, log } = ctx;
+
+  // Get new SFTP password from server config (stored temporarily by API)
+  const config = server.config as Record<string, unknown>;
+  const sftpPassword = config._sftpPassword as string | undefined;
+
+  if (!sftpPassword) {
+    return {
+      success: false,
+      error: "SFTP password not found in server config",
+      logs: [],
+    };
+  }
+
+  log("Resetting SFTP password...");
+
+  // Run the setup-sftp playbook (same playbook, just updates password)
+  const result = await runPlaybookWithLogging(
+    "ansible/playbooks/setup-sftp.yaml",
+    ctx,
+    { sftp_password: sftpPassword }
+  );
+
+  if (result.success) {
+    // Clear the temporary password from server config
+    const cleanConfig = { ...config };
+    delete cleanConfig._sftpPassword;
+    serversRepo.updateServer(server.id, { config: cleanConfig as Record<string, string | number | boolean> });
+    log("SFTP password reset successfully");
+  }
+
+  return result;
 }

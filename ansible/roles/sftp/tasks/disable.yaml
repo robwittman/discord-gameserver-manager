@@ -1,0 +1,18 @@
+---
+# Disable SFTP access for a game server
+#
+# Required variables:
+#   - server_user: Linux username (gs_xxx)
+
+- name: Remove SFTP configuration from sshd_config
+  blockinfile:
+    path: /etc/ssh/sshd_config
+    marker: "# {mark} SFTP CONFIG FOR {{ server_user }}"
+    state: absent
+  notify: Reload sshd
+
+- name: Lock user password (disable password login)
+  user:
+    name: "{{ server_user }}"
+    password: "!"
+    update_password: always

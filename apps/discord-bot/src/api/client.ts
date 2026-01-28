@@ -249,3 +249,47 @@ export async function toggleServerMod(
     version: options.version,
   });
 }
+
+// SFTP types
+export interface SftpCredentials {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  path: string;
+}
+
+export interface SftpInfo {
+  enabled: boolean;
+  host: string;
+  port: number;
+  username: string;
+  path: string;
+  createdAt: string;
+}
+
+// SFTP API methods
+export async function enableSftp(
+  serverId: string,
+  userId: string
+): Promise<ApiResponse<{ credentials: SftpCredentials; job: JobInfo }>> {
+  return request("POST", `/servers/${serverId}/sftp`, { userId });
+}
+
+export async function getSftpInfo(
+  serverId: string
+): Promise<ApiResponse<SftpInfo>> {
+  return request("GET", `/servers/${serverId}/sftp`);
+}
+
+export async function disableSftp(
+  serverId: string
+): Promise<ApiResponse<{ message: string; job: JobInfo }>> {
+  return request("DELETE", `/servers/${serverId}/sftp`);
+}
+
+export async function resetSftpPassword(
+  serverId: string
+): Promise<ApiResponse<{ credentials: SftpCredentials; job: JobInfo }>> {
+  return request("POST", `/servers/${serverId}/sftp/reset-password`);
+}

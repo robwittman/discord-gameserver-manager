@@ -23,8 +23,21 @@ export interface SftpAccess {
   id: number;
   serverId: string;
   userId: string;
-  username: string;
+  username: string;       // Linux username (gs_{serverid})
+  port: number;           // Allocated SFTP port
   createdAt: string;
+  // Note: password only returned on creation, not stored
+}
+
+/**
+ * Response when enabling SFTP - includes plaintext password (shown once)
+ */
+export interface SftpCredentials {
+  host: string;           // External hostname/IP
+  port: number;           // External SFTP port
+  username: string;       // Linux username
+  password: string;       // Plaintext (shown once)
+  path: string;           // Chroot path (e.g., /serverfiles)
 }
 
 /**
